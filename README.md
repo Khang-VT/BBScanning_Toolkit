@@ -64,7 +64,8 @@ The Web UI provides an easy way to configure, queue, and monitor scans without m
 # Start the production environment (Recommended)
 bash start.sh
 ```
-<img width="1907" height="793" alt="image" src="https://github.com/user-attachments/assets/ed6d2d8a-3fbe-4300-b98d-655d6099c824" />
+<img width="1920" height="821" alt="image" src="https://github.com/user-attachments/assets/781485e3-0acf-48d9-b190-70cc235c2d89" />
+
 
 > **🔒 Security Notes:**
 > - For safety, the Web UI listens locally on `127.0.0.1` by default. To expose it over the network/internet (e.g. on a VPS), run `HOST=0.0.0.0 bash start.sh`.
