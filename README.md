@@ -1,5 +1,5 @@
 # BBScanning_Toolkit
-Open Source tool scan bug bounty for wildcard in Kali Linux / Ubuntu
+Open Source tool scan bug bounty for wildcard in Kali Linux / Ubuntu (recommand localy)
 Supports fully automated scanning with an intuitive Web UI and a powerful Command-Line Interface (CLI).
 
 ---
