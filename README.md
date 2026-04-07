@@ -9,6 +9,11 @@ Supports fully automated scanning with an intuitive Web UI and a powerful Comman
 - **Fully Automated Recon**: Subdomain enumeration, live host detection, and URL extraction.
 - **Vulnerability Scanning**: Deep integration with specialized tools like Nuclei, Dalfox (XSS), SQLMap (SQLi), and GF patterns (SSRF, CORS, IDOR, etc.).
 - **Web UI Dashboard**: Multi-user support, task queueing system, visual configuration, and live report monitoring.
+
+  <img width="1907" height="793" alt="image" src="https://github.com/user-attachments/assets/69adb2e7-7b34-4046-84bd-bc01914da7d2" />
+  <img width="1907" height="821" alt="image" src="https://github.com/user-attachments/assets/d871569d-f654-4a73-879f-5f5f2b61489d" />
+
+
 - **High Performance**: Multi-threaded, with fully configurable rate limits and timeouts.
 - **Telegram Alerts**: Optional notifications pushed directly to your Telegram bot upon scan completion.
 
@@ -59,6 +64,7 @@ The Web UI provides an easy way to configure, queue, and monitor scans without m
 # Start the production environment (Recommended)
 bash start.sh
 ```
+<img width="1907" height="793" alt="image" src="https://github.com/user-attachments/assets/ed6d2d8a-3fbe-4300-b98d-655d6099c824" />
 
 > **🔒 Security Notes:**
 > - For safety, the Web UI listens locally on `127.0.0.1` by default. To expose it over the network/internet (e.g. on a VPS), run `HOST=0.0.0.0 bash start.sh`.
