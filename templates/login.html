@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BugBounty AutoScanner — Login</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #080b12;
+      --bg2:    #0d1117;
+      --bg3:    #111827;
+      --border: #1e2a3a;
+      --green:  #00ff88;
+      --cyan:   #00d4ff;
+      --text:   #e2e8f0;
+      --text2:  #94a3b8;
+      --text3:  #475569;
+      --red:    #ef4444;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* ── Animated background grid ── */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .bg-glow {
+      position: fixed;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,255,136,0.06) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      animation: glow-pulse 4s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.6; }
+      50%      { transform: translate(-50%,-50%) scale(1.1); opacity: 1; }
+    }
+
+    /* ── Login card ── */
+    .login-wrap {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 420px;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 0 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,255,136,0.05);
+      animation: card-in 0.5s ease;
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .logo-area {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo-icon {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, var(--green), var(--cyan));
+      border-radius: 16px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      margin-bottom: 16px;
+      box-shadow: 0 0 30px rgba(0,255,136,0.3);
+    }
+    .logo-title {
+      font-size: 20px; font-weight: 700; color: var(--text);
+      letter-spacing: 0.3px;
+    }
+    .logo-sub {
+      font-size: 12px; color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 4px;
+    }
+
+    /* scan line animation */
+    .scan-line {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      margin: 20px -40px;
+      animation: scan 2s ease-in-out infinite;
+      opacity: 0.4;
+    }
+    @keyframes scan {
+      0%   { background-position: -100% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 11px; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 6px; font-weight: 600;
+    }
+    .input-wrap { position: relative; }
+    .input-wrap i {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      font-size: 14px; color: var(--text3);
+    }
+    input[type=text], input[type=password] {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      padding: 12px 14px 12px 40px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(0,255,136,0.1);
+    }
+    input::placeholder { color: var(--text3); }
+
+    .show-pass {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text3); cursor: pointer; font-size: 14px; user-select: none;
+      transition: color 0.2s;
+    }
+    .show-pass:hover { color: var(--text2); }
+
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--green), #00b8d9);
+      border: none; border-radius: 10px;
+      color: #000; font-weight: 700; font-size: 14px;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      margin-top: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 0 20px rgba(0,255,136,0.4); }
+    .btn-login:active { transform: none; }
+
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px; color: var(--red);
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .footer-text {
+      text-align: center;
+      font-size: 11px; color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 24px;
+    }
+    .footer-text span { color: var(--green); }
+
+    /* Typing cursor effect */
+    .typing-text::after {
+      content: '|';
+      animation: blink 1s step-end infinite;
+      color: var(--green);
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="login-wrap">
+  <div class="login-card">
+
+    <div class="logo-area">
+      <div class="logo-icon">🛡</div>
+      <div class="logo-title">BugBounty AutoScanner</div>
+      <div class="logo-sub typing-text">v2.0 // Recon & Vuln Framework</div>
+    </div>
+
+    <div class="scan-line"></div>
+
+    {% if error %}
+    <div class="error-msg">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login" autocomplete="off">
+      <div class="form-group">
+        <label>Username</label>
+        <div class="input-wrap">
+          <i class="fa-solid fa-user"></i>
+          <input type="text" name="username" placeholder="Enter username"
+            autocomplete="username" autofocus required
+            value="{{ request.form.get('username', '') }}" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <div class="input-wrap">
+          <i class="fa-solid fa-lock"></i>
+          <input type="password" name="password" id="password-field"
+            placeholder="Enter password" autocomplete="current-password" required />
+          <span class="show-pass" onclick="togglePass()" title="Show/hide">
+            <i class="fa-solid fa-eye" id="eye-icon"></i>
+          </span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        Access Scanner
+      </button>
+    </form>
+
+    <div class="footer-text">
+      Secured • Authorized Use Only • <span>Bug Bounty</span>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePass() {
+  const f = document.getElementById('password-field');
+  const i = document.getElementById('eye-icon');
+  if (f.type === 'password') {
+    f.type = 'text';
+    i.className = 'fa-solid fa-eye-slash';
+  } else {
+    f.type = 'password';
+    i.className = 'fa-solid fa-eye';
+  }
+}
+</script>
+</body>
+</html>

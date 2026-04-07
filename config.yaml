@@ -1,0 +1,65 @@
+# ════════════════════════════════════════════════════════════════
+#  BugBounty AutoScanner — Configuration File
+#  Edit this file to customize tool paths and scan parameters.
+# ════════════════════════════════════════════════════════════════
+
+# ── Tool Paths ────────────────────────────────────────────────
+# Override if tools are not in $PATH
+tools:
+  subfinder:   subfinder
+  assetfinder: assetfinder
+  httpx:       httpx
+  waybackurls: waybackurls
+  gau:         gau
+  katana:      katana
+  dirsearch:   dirsearch
+  nuclei:      nuclei
+
+# ── Performance ───────────────────────────────────────────────
+threads:    50       # Concurrency for httpx and other tools
+rate_limit: 150      # Requests per second
+timeout:    30       # Per-request timeout in seconds
+
+# ── Nuclei Settings ───────────────────────────────────────────
+nuclei_severity:    "low,medium,high,critical"
+nuclei_concurrency: 25
+nuclei_rate_limit:  150
+
+# ── Katana Settings ───────────────────────────────────────────
+katana_depth: 3      # Crawl depth for katana
+
+# ── Dirsearch Settings ────────────────────────────────────────
+dirsearch_wordlist:   "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+dirsearch_extensions: "php,asp,aspx,jsp,html,json,txt,xml,bak,old,zip"
+
+# ── Static File Extensions (will be filtered out) ────────────
+static_extensions:
+  - css
+  - js
+  - jpg
+  - jpeg
+  - png
+  - gif
+  - svg
+  - ico
+  - woff
+  - woff2
+  - ttf
+  - eot
+  - pdf
+  - mp4
+  - mp3
+  - zip
+  - tar
+  - gz
+  - rar
+  - map
+
+# ── Output ────────────────────────────────────────────────────
+output_base: "output"
+
+# ── Telegram Notifications (optional) ────────────────────────
+telegram:
+  enabled:   false
+  bot_token: ""       # Your Telegram bot token
+  chat_id:   ""       # Your Telegram chat/channel ID

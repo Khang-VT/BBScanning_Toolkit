@@ -1,0 +1,8 @@
+# Python dependencies for BugBounty AutoScanner
+# Install with: pip3 install -r requirements.txt --break-system-packages
+
+flask>=3.0.0
+werkzeug>=3.0.0
+requests>=2.31.0
+pyyaml>=6.0.1
+gunicorn>=21.0.0

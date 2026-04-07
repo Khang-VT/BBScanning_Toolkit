@@ -1,0 +1,2647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BugBounty AutoScanner</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════
+       CSS VARIABLES
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg:        #080b12;
+      --bg2:       #0d1117;
+      --bg3:       #111827;
+      --bg4:       #161d2e;
+      --border:    #1e2a3a;
+      --border2:   #243044;
+      --green:     #00ff88;
+      --green-dim: #00cc6a;
+      --cyan:      #00d4ff;
+      --cyan-dim:  #00a8cc;
+      --purple:    #a855f7;
+      --yellow:    #fbbf24;
+      --orange:    #f97316;
+      --red:       #ef4444;
+      --text:      #e2e8f0;
+      --text2:     #94a3b8;
+      --text3:     #64748b;
+      --glow-g:    0 0 20px rgba(0,255,136,0.3);
+      --glow-c:    0 0 20px rgba(0,212,255,0.3);
+      --glow-r:    0 0 20px rgba(239,68,68,0.3);
+      --radius:    10px;
+      --radius-lg: 16px;
+      --trans:     all 0.2s ease;
+      --sidebar-w: 200px;
+    }
+    /* ── LIGHT MODE ── */
+    [data-theme="light"] {
+      --bg:        #f0f4f8;
+      --bg2:       #ffffff;
+      --bg3:       #f8fafc;
+      --bg4:       #e2e8f0;
+      --border:    #cbd5e1;
+      --border2:   #94a3b8;
+      --green:     #059669;
+      --green-dim: #047857;
+      --cyan:      #0284c7;
+      --cyan-dim:  #0369a1;
+      --purple:    #7c3aed;
+      --yellow:    #d97706;
+      --orange:    #ea580c;
+      --red:       #dc2626;
+      --text:      #0f172a;
+      --text2:     #334155;
+      --text3:     #64748b;
+      --glow-g:    0 0 12px rgba(5,150,105,0.2);
+      --glow-c:    0 0 12px rgba(2,132,199,0.2);
+      --glow-r:    0 0 12px rgba(220,38,38,0.2);
+    }
+    /* Theme toggle button */
+    .theme-toggle {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      cursor: pointer;
+      color: var(--text3);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: var(--trans);
+    }
+    .theme-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ═══════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 9999px; }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT
+    ═══════════════════════════════════════════ */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 28px 20px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .logo-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--green), var(--cyan));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      color: #000;
+      margin-bottom: 12px;
+    }
+    .sidebar-logo h1 { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+    .sidebar-logo p  { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+    .sidebar-nav { padding: 12px 0; flex: 1; }
+    .nav-section { padding: 8px 16px 4px; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 16px;
+      font-size: 13px; color: var(--text2);
+      cursor: pointer; border-radius: 0;
+      transition: var(--trans);
+      border-left: 2px solid transparent;
+      user-select: none;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: var(--green); border-left-color: var(--green); background: rgba(0,255,136,0.06); }
+    .nav-scan-item:hover { background: var(--bg3) !important; border-color: var(--green)44 !important; }
+    .nav-item i { width: 16px; text-align: center; font-size: 13px; }
+
+    .sidebar-tools {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-tools h3 { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 600; }
+    .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .tool-badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text3);
+    }
+    .tool-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+    .tool-badge.ok .dot  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .tool-badge.err .dot { background: var(--red); }
+    .tool-badge.ok  { color: var(--text2); border-color: rgba(0,255,136,0.15); }
+
+    .sidebar-footer {
+      padding: 12px 16px;
+      font-size: 10px;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Main area */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Bar */
+    .topbar {
+      height: 56px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .topbar-title { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+    .topbar-title span { color: var(--text3); font-weight: 400; margin-left: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--text3);
+    }
+    .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+    .status-pill.running { border-color: rgba(0,255,136,0.4); color: var(--green); }
+    .status-pill.running .dot { background: var(--green); animation: pulse-dot 1s infinite; }
+    .status-pill.done { border-color: rgba(0,212,255,0.4); color: var(--cyan); }
+    .status-pill.done .dot { background: var(--cyan); }
+    .status-pill.error { border-color: rgba(239,68,68,0.4); color: var(--red); }
+    .status-pill.error .dot { background: var(--red); }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.4)} }
+
+    /* Content area */
+    .content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+    /* ═══════════════════════════════════════════
+       CARDS
+    ═══════════════════════════════════════════ */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-header h2 { font-size: 13px; font-weight: 600; color: var(--text); }
+    .card-header .badge {
+      font-size: 10px; font-family: 'JetBrains Mono', monospace;
+      background: var(--bg3); color: var(--text3);
+      padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border);
+      margin-left: auto;
+    }
+    .card-body { padding: 20px; }
+
+    /* ═══════════════════════════════════════════
+       SCAN FORM
+    ═══════════════════════════════════════════ */
+    .scan-form-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+    }
+    .domain-input-wrap {
+      position: relative;
+    }
+    .domain-input-wrap i {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--text3); font-size: 14px;
+    }
+    .domain-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      padding: 12px 14px 12px 40px;
+      outline: none;
+      transition: var(--trans);
+    }
+    .domain-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,255,136,0.1); }
+    .domain-input::placeholder { color: var(--text3); }
+
+    .btn-scan {
+      padding: 12px 28px;
+      background: linear-gradient(135deg, var(--green), var(--cyan-dim));
+      border: none; border-radius: var(--radius);
+      color: #000; font-weight: 700; font-size: 13px;
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: var(--trans); white-space: nowrap;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-scan:hover { transform: translateY(-1px); box-shadow: var(--glow-g); }
+    .btn-scan:active { transform: translateY(0); }
+    .btn-scan:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-scan.running {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr) auto;
+      gap: 10px;
+      margin-top: 12px;
+      align-items: end;
+    }
+    .form-group label {
+      display: block;
+      font-size: 11px; color: var(--text3);
+      margin-bottom: 5px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .form-control {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 8px 10px;
+      outline: none;
+      transition: var(--trans);
+    }
+    .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,212,255,0.1); }
+    select.form-control option { background: var(--bg3); }
+
+    .toggle-group {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 12px;
+    }
+    .toggle-label {
+      display: flex; align-items: center; gap: 6px;
+      cursor: pointer; font-size: 12px; color: var(--text2);
+      user-select: none;
+    }
+    .toggle-label input[type=checkbox] { display: none; }
+    .toggle-box {
+      width: 14px; height: 14px;
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      background: var(--bg3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: transparent;
+      transition: var(--trans);
+    }
+    .toggle-label input:checked ~ .toggle-box {
+      background: var(--green); border-color: var(--green); color: #000;
+    }
+    .toggle-label:hover .toggle-box { border-color: var(--green); }
+
+    /* ═══════════════════════════════════════════
+       PHASE PROGRESS
+    ═══════════════════════════════════════════ */
+    .phases-track {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .phases-track::-webkit-scrollbar { height: 3px; }
+    .phase-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 60px;
+      position: relative;
+    }
+    .phase-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 18px;
+      left: calc(50% + 18px);
+      right: calc(-50% + 18px);
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.4s ease;
+    }
+    .phase-item.done:not(:last-child)::after { background: var(--green); }
+    .phase-item.active:not(:last-child)::after { background: var(--green); }
+
+    .phase-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--bg3);
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--text3);
+      position: relative; z-index: 1;
+      transition: all 0.4s ease;
+    }
+    .phase-item.done .phase-icon {
+      background: rgba(0,255,136,0.1);
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .phase-item.active .phase-icon {
+      background: rgba(0,255,136,0.15);
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 12px rgba(0,255,136,0.4);
+      animation: phase-pulse 1.5s infinite;
+    }
+    @keyframes phase-pulse { 0%,100%{box-shadow:0 0 12px rgba(0,255,136,0.4)} 50%{box-shadow:0 0 24px rgba(0,255,136,0.7)} }
+
+    .phase-label {
+      font-size: 10px; color: var(--text3);
+      text-align: center; line-height: 1.3;
+      transition: color 0.4s ease;
+    }
+    .phase-item.done .phase-label   { color: var(--green); }
+    .phase-item.active .phase-label { color: var(--green); font-weight: 600; }
+
+    /* ═══════════════════════════════════════════
+       STATS CARDS
+    ═══════════════════════════════════════════ */
+    .stats-section { margin-bottom: 4px; }
+    .stats-section-title {
+      font-size: 12px; font-weight: 700; color: var(--text2);
+      margin-bottom: 10px; letter-spacing: 0.5px;
+      display: flex; align-items: center;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      text-align: center;
+      transition: var(--trans);
+    }
+    .stat-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+    .stat-card .stat-val {
+      font-size: 26px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--cyan);
+      line-height: 1.1;
+    }
+    .stat-card .stat-label { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .stat-card.highlight { border-color: rgba(0,255,136,0.2); }
+    .stat-card.highlight .stat-val { color: var(--green); }
+
+    /* ═══════════════════════════════════════════
+       BOTTOM SPLIT: TERMINAL + RESULTS
+    ═══════════════════════════════════════════ */
+    .split-view {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 16px;
+    }
+
+    /* Terminal */
+    .terminal-card {
+      background: #0a0d13;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      display: flex; flex-direction: column;
+    }
+    .terminal-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .terminal-dots { display: flex; gap: 6px; }
+    .terminal-dots span { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dots .d1 { background: #ef4444; }
+    .terminal-dots .d2 { background: #fbbf24; }
+    .terminal-dots .d3 { background: #22c55e; }
+    .terminal-title {
+      font-size: 12px; color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      flex: 1; text-align: center;
+    }
+    .terminal-actions { display: flex; gap: 8px; }
+    .terminal-btn {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text3); font-size: 11px;
+      padding: 3px 8px; cursor: pointer; transition: var(--trans);
+    }
+    .terminal-btn:hover { color: var(--text); border-color: var(--border2); }
+    #terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      min-height: 400px;
+      max-height: 480px;
+    }
+    .log-line { display: flex; gap: 8px; animation: fadein 0.2s ease; }
+    @keyframes fadein { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+    .log-ts { color: var(--text3); flex-shrink: 0; }
+    .log-msg.info     { color: #a3e4b4; }
+    .log-msg.warn     { color: var(--yellow); }
+    .log-msg.error    { color: var(--red); }
+    .log-msg.debug    { color: var(--text3); }
+    .log-msg.phase    { color: var(--cyan); font-weight: 600; }
+    .log-msg.done     { color: var(--green); font-weight: 700; }
+    .log-msg.default  { color: var(--text2); }
+
+    /* Right panel: Chart + Findings */
+    .right-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .chart-wrap {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .chart-center-text {
+      position: absolute;
+      text-align: center;
+      pointer-events: none;
+    }
+    .chart-center-text .total-num {
+      font-size: 30px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+    }
+    .chart-center-text .total-label { font-size: 11px; color: var(--text3); }
+
+    .severity-legend { padding: 0 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sev-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .sev-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .sev-name { font-size: 12px; color: var(--text2); flex: 1; }
+    .sev-count { font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+    /* Findings Table */
+    .findings-wrap {
+      overflow-x: auto;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th {
+      text-align: left; padding: 10px 14px;
+      background: var(--bg3);
+      color: var(--text3); font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky; top: 0; z-index: 1;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody td { padding: 10px 14px; color: var(--text2); vertical-align: top; }
+    .sev-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sev-critical { background: rgba(168,0,0,0.2); color: #ff4444; border: 1px solid rgba(255,68,68,0.3); }
+    .sev-high     { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+    .sev-medium   { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+    .sev-low      { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+    .sev-info     { background: rgba(100,116,139,0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
+
+    /* ═══════════════════════════════════════════
+       HISTORY TAB
+    ═══════════════════════════════════════════ */
+    .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .history-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: var(--trans);
+    }
+    .history-card:hover { border-color: var(--cyan-dim); transform: translateY(-2px); box-shadow: var(--glow-c); }
+    .history-card.selectable:hover { border-color: var(--cyan); }
+    .history-card.selected { border-color: var(--cyan); background: rgba(0,212,255,0.06); }
+    .history-card h3 { font-size: 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; margin-bottom: 8px; }
+    .history-meta { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+    .history-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+    .history-stat { font-size: 11px; color: var(--text2); background: var(--bg4); padding: 3px 8px; border-radius: 20px; border: 1px solid var(--border); }
+
+    /* ═══════════════════════════════════════════
+       TABS
+    ═══════════════════════════════════════════ */
+    .tab-bar { display: flex; gap: 2px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+    .tab-btn {
+      padding: 10px 16px; font-size: 12px; color: var(--text3);
+      border: none; background: none; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: var(--trans); font-family: 'Inter', sans-serif;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+    .tab-content { display: none; }
+    .tab-content.active { display: flex; flex-direction: column; gap: 20px; }
+
+    /* Page tabs */
+    .page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .page.active { display: flex; }
+
+    /* ═══════════════════════════════════════════
+       EMPTY STATES
+    ═══════════════════════════════════════════ */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 20px; color: var(--text3); gap: 12px; text-align: center;
+    }
+    .empty-state i { font-size: 40px; opacity: 0.3; }
+    .empty-state p { font-size: 14px; }
+
+    /* ═══════════════════════════════════════════
+       PROGRESS BAR GLOBAL
+    ═══════════════════════════════════════════ */
+    .progress-bar-wrap {
+      background: var(--bg3);
+      border-radius: 20px;
+      height: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      border-radius: 20px;
+      transition: width 0.5s ease;
+    }
+
+    /* ═══════════════════════════════════════════
+       TOAST NOTIFICATIONS
+    ═══════════════════════════════════════════ */
+    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 13px; color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      animation: toast-in 0.3s ease;
+      min-width: 240px;
+    }
+    @keyframes toast-in { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+    .toast.success { border-color: rgba(0,255,136,0.3); }
+    .toast.error   { border-color: rgba(239,68,68,0.3); }
+    .toast i { font-size: 16px; }
+    .toast.success i { color: var(--green); }
+    .toast.error i   { color: var(--red); }
+    .toast.info i    { color: var(--cyan); }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════ */
+    @media (max-width: 1200px) {
+      .split-view { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+      .options-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ═══════════════════════════════════════════
+       SIDEBAR
+  ═══════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
+      <h1>BugBounty Scanner</h1>
+      <p>v2.0 // AutoRecon</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Navigation</div>
+      <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+        <i class="fa-solid fa-gauge-high"></i> Dashboard
+      </div>
+      <div class="nav-item" data-page="new-scan" onclick="focusNewScan()">
+        <i class="fa-solid fa-plus-circle"></i> New Scan
+      </div>
+      <div class="nav-item" data-page="history" onclick="switchPage('history')">
+        <i class="fa-solid fa-clock-rotate-left"></i> Scan History
+      </div>
+      <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+        <i class="fa-solid fa-sliders"></i> Settings
+      </div>
+
+      <div class="nav-section" style="margin-top:12px">Active Scans</div>
+      <div id="nav-active-scans" style="padding:0 12px 8px">
+        <div id="nav-idle" style="font-size:12px;color:var(--text3);padding:8px 12px;border-radius:8px;background:var(--bg3);border:1px dashed var(--border)">Idle</div>
+        <div id="nav-scan-list" style="display:none;flex-direction:column;gap:6px"></div>
+      </div>
+    </nav>
+
+    <div class="sidebar-tools">
+      <h3>Modules</h3>
+      <div class="tool-grid" id="tool-grid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div id="sb-sys-info" style="color:var(--text3)">Security Scanner</div>
+      <div id="sb-time" style="margin-top:3px"></div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════
+       MAIN
+  ═══════════════════════════════════════════ -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">
+        Recon &amp; Vuln Scanner
+        <span id="topbar-domain"></span>
+        <div id="scan-selector-wrap" style="display:none;margin-left:12px">
+          <select id="scan-selector" onchange="switchActiveScan(this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:4px 10px;cursor:pointer;max-width:180px">
+          </select>
+        </div>
+      </div>
+      <div class="status-pill" id="scan-status-pill">
+        <div class="dot"></div>
+        <span id="scan-status-text">Idle</span>
+      </div>
+      <div id="elapsed-display" style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:8px">
+        <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">
+          <i class="fa-solid fa-user" style="color:var(--green);margin-right:4px"></i>{{ username }}
+          {% if role == 'admin' %}<span style="color:var(--yellow);font-size:10px;margin-left:4px">[admin]</span>{% endif %}
+        </span>
+        <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">
+          <i class="fa-solid fa-moon" id="theme-icon"></i>
+          <span id="theme-label">Dark</span>
+        </button>
+        <button onclick="showChangePassword()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:4px 8px;cursor:pointer" title="Change password">
+          <i class="fa-solid fa-key"></i>
+        </button>
+        <a href="/logout" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;color:#f87171;font-size:11px;padding:4px 8px;cursor:pointer;text-decoration:none">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
+      </div>
+    </div>
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="content">
+
+        <!-- ── Scan Config Card ── -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fa-solid fa-crosshairs" style="color:var(--green)"></i>
+            <h2>New Scan Target</h2>
+          </div>
+          <div class="card-body">
+            <div class="scan-form-grid">
+              <div class="domain-input-wrap">
+                <i class="fa-solid fa-globe"></i>
+                <input type="text" class="domain-input" id="domain-input"
+                  placeholder="example.com, api.example.com (comma-separated for multiple)" autocomplete="off" spellcheck="false"
+                  onkeydown="if(event.key==='Enter') toggleScan()" />
+              </div>
+              <button class="btn-scan" id="scan-btn" onclick="toggleScan()">
+                <i class="fa-solid fa-play" id="scan-btn-icon"></i>
+                <span id="scan-btn-text">Launch Scan</span>
+              </button>
+              <button id="pause-btn" onclick="togglePause()" title="Pause / Resume scan"
+                style="display:none;background:var(--bg3);border:1px solid var(--yellow);border-radius:10px;color:var(--yellow);padding:0 18px;font-size:13px;font-weight:600;cursor:pointer;transition:var(--trans);gap:6px;align-items:center">
+                <i class="fa-solid fa-pause" id="pause-btn-icon"></i>
+                <span id="pause-btn-text">Pause</span>
+              </button>
+            </div>
+
+            <div class="options-grid">
+              <div class="form-group">
+                <label>Threads</label>
+                <input type="number" class="form-control" id="opt-threads" value="50" min="1" max="200" />
+              </div>
+              <div class="form-group">
+                <label>Rate Limit (req/s)</label>
+                <input type="number" class="form-control" id="opt-rate" value="150" min="1" />
+              </div>
+              <div class="form-group">
+                <label>Timeout (sec)</label>
+                <input type="number" class="form-control" id="opt-timeout" value="30" min="5" />
+              </div>
+              <div class="form-group">
+                <label>Scan Severity</label>
+                <select class="form-control" id="opt-severity">
+                  <option value="low,medium,high,critical">All (Low+)</option>
+                  <option value="medium,high,critical">Medium+</option>
+                  <option value="high,critical">High+</option>
+                  <option value="critical">Critical Only</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Auth Cookie (Authenticated Scan) -->
+            <div style="margin-top:14px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <i class="fa-solid fa-lock" style="color:var(--yellow);font-size:12px"></i>
+                <span style="font-size:12px;font-weight:600;color:var(--text2)">Authenticated Scan (Optional)</span>
+                <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 6px;border-radius:4px">for logged-in areas</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="form-group" style="margin:0">
+                  <label>Session Cookie</label>
+                  <input type="text" class="form-control" id="opt-auth-cookie"
+                    placeholder="session=abc123; token=xyz"
+                    style="font-family:'JetBrains Mono',monospace;font-size:11px" />
+                </div>
+                <div class="form-group" style="margin:0">
+                  <label>Auth Header</label>
+                  <input type="text" class="form-control" id="opt-auth-header"
+                    placeholder="Bearer eyJhbGc..."
+                    style="font-family:'JetBrains Mono',monospace;font-size:11px" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Proxy & Scope -->
+            <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin:0">
+                <label><i class="fa-solid fa-network-wired" style="color:var(--purple);margin-right:4px;font-size:10px"></i>Proxy (HTTP/SOCKS5)</label>
+                <input type="text" class="form-control" id="opt-proxy"
+                  placeholder="http://127.0.0.1:8080"
+                  style="font-family:'JetBrains Mono',monospace;font-size:11px" />
+              </div>
+              <div class="form-group" style="margin:0">
+                <label><i class="fa-solid fa-bullseye" style="color:var(--orange);margin-right:4px;font-size:10px"></i>Scope Domains (comma-separated)</label>
+                <input type="text" class="form-control" id="opt-scope"
+                  placeholder="*.example.com, api.example.com"
+                  style="font-family:'JetBrains Mono',monospace;font-size:11px" />
+              </div>
+            </div>
+
+            <div class="toggle-group" style="margin-top:14px">
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-skip-subfinder" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Skip Recon
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-crawl-only" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Crawl Only
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-no-dirsearch" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Skip Dir Scan
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-no-js-analysis" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Skip JS Analysis
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-no-xss" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Skip XSS Check
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-no-sqli" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Skip Injection Check
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-no-nuclei" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Skip Vuln Engine
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-resume" />
+                <span class="toggle-box"><i class="fa-solid fa-check"></i></span>
+                Resume Previous
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Phase Progress ── -->
+        <div class="card" id="phase-card">
+          <div class="card-header">
+            <i class="fa-solid fa-diagram-project" style="color:var(--cyan)"></i>
+            <h2>Scan Progress</h2>
+            <span class="badge" id="phase-badge">Phase 0 / 6</span>
+          </div>
+          <div class="card-body" style="padding:20px 16px">
+            <div class="phases-track" id="phases-track">
+              {% for num, name, icon in phases %}
+              <div class="phase-item" id="phase-{{ num }}">
+                <div class="phase-icon"><i class="fa-solid {{ icon }}"></i></div>
+                <div class="phase-label">{{ name }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            <div style="width:100%;background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;margin-top:8px">
+              <div id="global-progress" style="height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--cyan));border-radius:4px;transition:width .5s ease"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Stats: Website Information ── -->
+        <div class="stats-section">
+          <div class="stats-section-title">
+            <i class="fa-solid fa-globe" style="color:var(--cyan);margin-right:6px"></i>
+            Info
+          </div>
+          <div class="stats-grid stats-info" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            <div class="stat-card highlight">
+              <div class="stat-val" id="stat-subdomains">—</div>
+              <div class="stat-label"><i class="fa-solid fa-sitemap" style="color:var(--cyan);margin-right:4px;font-size:10px"></i>Subdomains</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-alive">—</div>
+              <div class="stat-label"><i class="fa-solid fa-server" style="color:var(--green);margin-right:4px;font-size:10px"></i>Alive Hosts</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-open-ports">—</div>
+              <div class="stat-label"><i class="fa-solid fa-network-wired" style="color:#a78bfa;margin-right:4px;font-size:10px"></i>Open Ports</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-all-urls">—</div>
+              <div class="stat-label"><i class="fa-solid fa-link" style="color:var(--text3);margin-right:4px;font-size:10px"></i>Total URLs</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-params">—</div>
+              <div class="stat-label"><i class="fa-solid fa-code" style="color:var(--purple);margin-right:4px;font-size:10px"></i>Endpoints</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-alive-params">—</div>
+              <div class="stat-label"><i class="fa-solid fa-check-double" style="color:var(--green);margin-right:4px;font-size:10px"></i>Verified</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="stat-js-files">—</div>
+              <div class="stat-label"><i class="fa-brands fa-js" style="color:var(--yellow);margin-right:4px;font-size:10px"></i>JS Files</div>
+            </div>
+            <div class="stat-card" style="border-color:rgba(239,68,68,0.3)">
+              <div class="stat-val" id="stat-js-secrets" style="color:var(--red)">—</div>
+              <div class="stat-label"><i class="fa-solid fa-key" style="color:var(--red);margin-right:4px;font-size:10px"></i>Secrets</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Stats: Website Vulnerabilities ── -->
+        <div class="stats-section" style="margin-top:16px">
+          <div class="stats-section-title" style="color:#f87171">
+            <i class="fa-solid fa-shield-halved" style="color:#f87171;margin-right:6px"></i>
+            Vulnerabilities
+          </div>
+          <div class="stats-grid stats-vuln" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            <div class="stat-card" style="border-color:rgba(255,34,34,0.4);background:rgba(255,34,34,0.04)">
+              <div class="stat-val" id="stat-critical" style="color:#ff4444;font-size:28px">0</div>
+              <div class="stat-label"><i class="fa-solid fa-skull" style="color:#ff4444;margin-right:4px;font-size:10px"></i>Critical</div>
+            </div>
+            <div class="stat-card" style="border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.03)">
+              <div class="stat-val" id="stat-high" style="color:#f87171;font-size:28px">0</div>
+              <div class="stat-label"><i class="fa-solid fa-triangle-exclamation" style="color:#f87171;margin-right:4px;font-size:10px"></i>High</div>
+            </div>
+            <div class="stat-card" style="border-color:rgba(251,191,36,0.2)">
+              <div class="stat-val" id="stat-medium" style="color:#fbbf24;font-size:28px">0</div>
+              <div class="stat-label"><i class="fa-solid fa-circle-exclamation" style="color:#fbbf24;margin-right:4px;font-size:10px"></i>Medium</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Collected Data (real-time during Vuln Scan) ── -->
+        <div class="card" id="collected-data-card" style="display:none;margin-top:16px">
+          <div class="card-header" style="cursor:pointer" onclick="toggleCollectedData()">
+            <i class="fa-solid fa-database" style="color:var(--cyan)"></i>
+            <h2>Collected Data</h2>
+            <span class="badge" style="font-size:10px">View recon results</span>
+            <span id="collected-data-arrow" style="margin-left:auto;font-size:12px;color:var(--text3)">▼</span>
+          </div>
+          <div id="collected-data-body" style="display:none;padding:0">
+            <div class="tab-bar" style="padding:12px 16px 0;border-bottom:1px solid var(--border)">
+              <button class="tab-btn active" onclick="switchCollectedTab('subdomains',this)">Subdomains</button>
+              <button class="tab-btn" onclick="switchCollectedTab('alive',this)">Alive Hosts</button>
+              <button class="tab-btn" onclick="switchCollectedTab('ports',this)">Open Ports</button>
+              <button class="tab-btn" onclick="switchCollectedTab('urls',this)">URLs</button>
+            </div>
+            <div id="collected-data-content" style="max-height:280px;overflow-y:auto;padding:14px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:var(--text2)">
+              <div class="empty-state" style="padding:40px"><i class="fa-solid fa-spinner fa-spin"></i><p>Loading…</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Terminal + Results ── -->
+        <div class="split-view">
+
+          <!-- Terminal -->
+          <div class="terminal-card">
+            <div class="terminal-header">
+              <div class="terminal-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
+              <div class="terminal-title" id="terminal-title">scanner ~ live output</div>
+              <div class="terminal-actions">
+                <button class="terminal-btn" onclick="clearTerminal()">Clear</button>
+                <button class="terminal-btn" onclick="scrollTerminalBottom()">↓ Follow</button>
+              </div>
+            </div>
+            <div id="terminal">
+              <div class="empty-state">
+                <i class="fa-solid fa-terminal"></i>
+                <p>Start a scan to see live output here</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Panel -->
+          <div class="right-panel">
+
+            <!-- Vulnerability Chart -->
+            <div class="card">
+              <div class="card-header">
+                <i class="fa-solid fa-chart-pie" style="color:var(--purple)"></i>
+                <h2>Vulnerabilities</h2>
+                <span class="badge" id="vuln-total-badge">0 found</span>
+              </div>
+              <div class="chart-wrap" style="height:200px">
+                <canvas id="vuln-chart" style="max-width:200px;max-height:200px"></canvas>
+                <div class="chart-center-text">
+                  <div class="total-num" id="chart-total">0</div>
+                  <div class="total-label">findings</div>
+                </div>
+              </div>
+              <div class="severity-legend">
+                <div class="sev-item">
+                  <div class="sev-dot" style="background:#ff4444"></div>
+                  <div class="sev-name">Critical</div>
+                  <div class="sev-count" id="sev-critical" style="color:#ff4444">0</div>
+                </div>
+                <div class="sev-item">
+                  <div class="sev-dot" style="background:#f87171"></div>
+                  <div class="sev-name">High</div>
+                  <div class="sev-count" id="sev-high" style="color:#f87171">0</div>
+                </div>
+                <div class="sev-item">
+                  <div class="sev-dot" style="background:#fbbf24"></div>
+                  <div class="sev-name">Medium</div>
+                  <div class="sev-count" id="sev-medium" style="color:#fbbf24">0</div>
+                </div>
+                <div class="sev-item">
+                  <div class="sev-dot" style="background:#60a5fa"></div>
+                  <div class="sev-name">Low</div>
+                  <div class="sev-count" id="sev-low" style="color:#60a5fa">0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- File Browser -->
+            <div class="card">
+              <div class="card-header">
+                <i class="fa-solid fa-folder-tree" style="color:var(--yellow)"></i>
+                <h2>Output Files</h2>
+                <div style="margin-left:auto;display:flex;gap:6px" id="export-btns" style="display:none">
+                  <button id="export-html-btn" onclick="exportReport('html')" title="Download HTML Report"
+                    style="display:none;align-items:center;gap:5px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);
+                    color:#a5b4fc;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all .2s"
+                    onmouseover="this.style.background='rgba(99,102,241,.3)'" onmouseout="this.style.background='rgba(99,102,241,.15)'">
+                    <i class="fa-solid fa-file-code"></i> HTML
+                  </button>
+                  <button id="export-csv-btn" onclick="exportReport('csv')" title="Download CSV"
+                    style="display:none;align-items:center;gap:5px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);
+                    color:#86efac;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all .2s"
+                    onmouseover="this.style.background='rgba(34,197,94,.25)'" onmouseout="this.style.background='rgba(34,197,94,.12)'">
+                    <i class="fa-solid fa-file-csv"></i> CSV
+                  </button>
+                </div>
+              </div>
+              <div id="file-list" style="padding:12px;display:flex;flex-direction:column;gap:6px">
+                <div style="color:var(--text3);font-size:12px;padding:8px">Run a scan to see output files</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Findings + JS Secrets + Screenshots (tabbed) ── -->
+        <div class="card" id="findings-card">
+          <div class="card-header">
+            <i class="fa-solid fa-bug" style="color:var(--red)"></i>
+            <h2>Results</h2>
+            <span class="badge" id="findings-count-badge">0 results</span>
+          </div>
+          <!-- Main section tabs -->
+          <div style="border-bottom:1px solid var(--border)">
+            <div class="tab-bar" id="section-tabs">
+              <button class="tab-btn active" onclick="switchSection('vuln', this)">
+                <i class="fa-solid fa-shield-halved"></i> Vulnerabilities
+              </button>
+              <button class="tab-btn" onclick="switchSection('secrets', this)">
+                <i class="fa-solid fa-key"></i> JS Secrets
+                <span id="secrets-badge" style="background:rgba(239,68,68,0.2);color:var(--red);border-radius:9999px;padding:1px 6px;font-size:9px;margin-left:4px">0</span>
+              </button>
+              <button class="tab-btn" onclick="switchSection('attack-surface', this)">
+                <i class="fa-solid fa-crosshairs"></i> Attack Surface
+              </button>
+              <button class="tab-btn" onclick="switchSection('extra-vulns', this)">
+                <i class="fa-solid fa-fire"></i> Extra Findings
+                <span id="extra-badge" style="background:rgba(249,115,22,0.2);color:var(--orange);border-radius:9999px;padding:1px 6px;font-size:9px;margin-left:4px">0</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- VULN SECTION -->
+          <div id="section-vuln">
+            <div style="border-bottom:1px solid var(--border)">
+              <div class="tab-bar" id="findings-tabs">
+                <button class="tab-btn active" onclick="filterFindings('all', this)">All</button>
+                <button class="tab-btn" onclick="filterFindings('critical', this)" style="color:#ff4444">● Critical</button>
+                <button class="tab-btn" onclick="filterFindings('high', this)" style="color:#f87171">● High</button>
+                <button class="tab-btn" onclick="filterFindings('medium', this)" style="color:#fbbf24">● Medium</button>
+                <button class="tab-btn" onclick="filterFindings('low', this)" style="color:#60a5fa">● Low</button>
+              </div>
+            </div>
+            <div class="findings-wrap">
+              <table id="findings-table">
+                <thead>
+                  <tr>
+                    <th>Severity</th>
+                    <th>Template / Type</th>
+                    <th>Name</th>
+                    <th>Matched URL</th>
+                    <th>Tags</th>
+                  </tr>
+                </thead>
+                <tbody id="findings-tbody">
+                  <tr><td colspan="5"><div class="empty-state" style="padding:30px"><i class="fa-solid fa-bug"></i><p>No findings yet</p></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- JS SECRETS SECTION -->
+          <div id="section-secrets" style="display:none;padding:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <p style="font-size:12px;color:var(--text3)">Leaked credentials and sensitive data found in JavaScript files</p>
+              <button class="terminal-btn" onclick="loadJsSecrets()" style="padding:5px 12px">
+                <i class="fa-solid fa-rotate"></i> Refresh
+              </button>
+            </div>
+            <div id="secrets-list">
+              <div class="empty-state" style="padding:30px"><i class="fa-solid fa-key"></i><p>No secrets found</p></div>
+            </div>
+          </div>
+
+          <!-- EXTRA VULNS SECTION (CORS, SSRF, Takeover etc.) -->
+          <div id="section-extra-vulns" style="display:none;padding:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <p style="font-size:12px;color:var(--text3)">Additional vulnerability findings: CORS, SSRF, 403 Bypass, SSTI, Takeover, GraphQL, JWT, Host Header</p>
+              <button class="terminal-btn" onclick="loadExtraVulns()" style="padding:5px 12px">
+                <i class="fa-solid fa-rotate"></i> Refresh
+              </button>
+            </div>
+            <div id="extra-vulns-list">
+              <div class="empty-state" style="padding:30px"><i class="fa-solid fa-fire"></i><p>Run a scan to discover additional vulnerabilities</p></div>
+            </div>
+          </div>
+
+          <!-- ATTACK SURFACE SECTION -->
+          <div id="section-attack-surface" style="display:none;padding:16px">
+            <div style="margin-bottom:14px">
+              <p style="font-size:12px;color:var(--text3)">Endpoints classified by vulnerability risk category</p>
+            </div>
+            <div id="gf-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+              <div class="empty-state" style="padding:30px"><i class="fa-solid fa-crosshairs"></i><p>Run a scan to see attack surface</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /page-dashboard -->
+
+    <!-- HISTORY PAGE -->
+    <div class="page" id="page-history">
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <i class="fa-solid fa-clock-rotate-left" style="color:var(--cyan)"></i>
+            <h2>Scan History</h2>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+              <span id="hist-select-count" style="font-size:11px;color:var(--text3);display:none"></span>
+              <button class="terminal-btn" id="hist-delete-btn" onclick="deleteSelectedScans()" style="display:none;border-color:rgba(239,68,68,0.4);color:#f87171">
+                <i class="fa-solid fa-trash"></i> Delete Selected
+              </button>
+              <button class="terminal-btn" id="hist-select-btn" onclick="toggleHistorySelectMode()">
+                <i class="fa-solid fa-check-square"></i> Select
+              </button>
+              <button class="terminal-btn" onclick="loadHistory()">
+                <i class="fa-solid fa-rotate"></i> Refresh
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="history-grid" id="history-grid">
+              <div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i><p>No history yet</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <i class="fa-solid fa-sliders" style="color:var(--cyan)"></i>
+            <h2>Scanner Configuration</h2>
+          </div>
+          <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div>
+              <h3 style="font-size:13px;color:var(--text2);margin-bottom:12px">Telegram Notifications</h3>
+              <div class="form-group" style="margin-bottom:10px">
+                <label>Bot Token</label>
+                <input type="password" class="form-control" id="tg-token" placeholder="1234567890:ABCdef..." autocomplete="off" />
+              </div>
+              <div class="form-group" style="margin-bottom:10px">
+                <label>Chat ID</label>
+                <input type="text" class="form-control" id="tg-chatid" placeholder="-100123456789" />
+              </div>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button class="btn-scan" style="padding:8px 18px;font-size:12px" onclick="saveTelegram()">
+                  <i class="fa-solid fa-save"></i> Save &amp; Verify
+                </button>
+                <button class="btn-scan" id="tg-test-btn" style="padding:8px 14px;font-size:12px;background:var(--bg3);color:var(--text2);display:none" onclick="testTelegram()">
+                  <i class="fa-solid fa-paper-plane"></i> Test
+                </button>
+              </div>
+              <div id="tg-status" style="margin-top:8px;font-size:12px"></div>
+            </div>
+            <div>
+              <h3 style="font-size:13px;color:var(--text2);margin-bottom:12px">Notification Tips</h3>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:12px;color:var(--text3);line-height:1.8">
+                <div style="margin-bottom:6px">&#x1F4E1; Receive real-time alerts when <span style="color:var(--red);font-weight:600">Critical</span> or <span style="color:#f87171;font-weight:600">High</span> vulnerabilities are found.</div>
+                <div style="margin-bottom:6px">&#x2139;&#xFE0F; Create a Telegram bot via <span style="color:var(--cyan)">@BotFather</span> to get your Bot Token.</div>
+                <div>&#x1F4CC; Get your Chat ID by messaging <span style="color:var(--cyan)">@userinfobot</span>.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <i class="fa-solid fa-puzzle-piece" style="color:var(--yellow)"></i>
+            <h2>Scan Modules</h2>
+          </div>
+          <div class="card-body">
+            <div class="tool-grid" id="settings-tool-grid" style="grid-template-columns:repeat(4,1fr)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div id="pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;width:360px;max-width:90vw">
+    <h3 style="font-size:14px;margin-bottom:20px;color:var(--text)"><i class="fa-solid fa-key" style="color:var(--green);margin-right:8px"></i>Change Password</h3>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input type="password" id="pwd-old" placeholder="Current password" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;outline:none" />
+      <input type="password" id="pwd-new" placeholder="New password (min 6 chars)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;outline:none" />
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="submitChangePassword()" style="flex:1;padding:10px;background:linear-gradient(135deg,var(--green),var(--cyan-dim));border:none;border-radius:8px;color:#000;font-weight:700;font-size:13px;cursor:pointer">Save</button>
+        <button onclick="document.getElementById('pwd-modal').style.display='none'" style="padding:10px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text3);font-size:13px;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════ -->
+<script>
+/* ─── State ─────────────────────────────────── */
+let currentScanId   = null;
+let currentScanDomain = null;
+let activeScanIds   = [];
+let sseSource       = null;
+let autoScroll      = true;
+let pollTimer       = null;
+let elapsedTimer    = null;
+let elapsedStart    = null;
+let allFindings     = [];
+let currentFilter   = 'all';
+let vulnChart       = null;
+
+/* ─── Chart.js init ──────────────────────────── */
+function initChart() {
+  const ctx = document.getElementById('vuln-chart').getContext('2d');
+  vulnChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Critical','High','Medium','Low','Info'],
+      datasets: [{
+        data: [0,0,0,0,0],
+        backgroundColor: ['#ff2222','#f87171','#fbbf24','#60a5fa','#64748b'],
+        borderColor: '#0d1117',
+        borderWidth: 3,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          label: (ctx) => ` ${ctx.label}: ${ctx.parsed}`
+        }
+      }},
+      animation: { animateScale: true },
+    }
+  });
+}
+
+/* ─── Page switching ──────────────────────────── */
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  const nav = document.querySelector(`[data-page="${page}"]`);
+  if (nav) nav.classList.add('active');
+  if (page === 'history')  loadHistory();
+  if (page === 'settings') loadTelegramConfig();
+}
+
+function focusNewScan() {
+  switchPage('dashboard');
+  const inp = document.getElementById('domain-input');
+  if (inp) {
+    inp.focus();
+    inp.select && inp.select();
+  }
+}
+
+/* ─── Clock ──────────────────────────────────── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('sb-time').textContent = now.toLocaleTimeString('en-GB');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ─── Tool checker ───────────────────────────── */
+async function loadTools() {
+  try {
+    const res = await fetch('/api/tools');
+    const tools = await res.json();
+    renderTools(tools, 'tool-grid');
+    renderTools(tools, 'settings-tool-grid');
+    // Highlight tool grid title if any tool missing
+    const anyMissing = Object.values(tools).some(v => !v);
+    const toolsTitle = document.querySelector('.sidebar-tools h3');
+    if (toolsTitle) toolsTitle.style.color = anyMissing ? 'var(--yellow)' : '';
+  } catch(e) {}
+}
+
+
+function renderTools(tools, containerId) {
+  const grid = document.getElementById(containerId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (const [name, ok] of Object.entries(tools)) {
+    const el = document.createElement('div');
+    el.className = `tool-badge ${ok ? 'ok' : 'err'}`;
+    el.innerHTML = `<span class="dot"></span>${name}`;
+    grid.appendChild(el);
+  }
+}
+
+/* ─── Elapsed timer ──────────────────────────── */
+function startElapsed() {
+  elapsedStart = Date.now();
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    const sec = Math.floor((Date.now() - elapsedStart) / 1000);
+    const m = Math.floor(sec / 60), s = sec % 60;
+    document.getElementById('elapsed-display').textContent = `${m}m ${s}s`;
+  }, 1000);
+}
+function stopElapsed() {
+  clearInterval(elapsedTimer);
+}
+
+/* ─── Start / Stop scan ──────────────────────── */
+async function toggleScan() {
+  if (currentScanId && document.getElementById('scan-btn').classList.contains('running')) {
+    await stopScan();
+    return;
+  }
+  await startScan();
+}
+
+async function startScan() {
+  const domain = document.getElementById('domain-input').value.trim();
+  if (!domain) { toast('Enter a target domain', 'error'); return; }
+
+  const payload = {
+    domain,
+    threads:         parseInt(document.getElementById('opt-threads').value)    || 50,
+    rate_limit:      parseInt(document.getElementById('opt-rate').value)       || 150,
+    timeout:         parseInt(document.getElementById('opt-timeout').value)    || 30,
+    severity:        document.getElementById('opt-severity').value,
+    skip_subfinder:  document.getElementById('opt-skip-subfinder').checked,
+    crawl_only:      document.getElementById('opt-crawl-only').checked,
+    no_dirsearch:    document.getElementById('opt-no-dirsearch').checked,
+    no_nuclei:       document.getElementById('opt-no-nuclei').checked,
+    no_xss:          document.getElementById('opt-no-xss').checked,
+    no_sqli:         document.getElementById('opt-no-sqli').checked,
+    no_js_analysis:  document.getElementById('opt-no-js-analysis').checked,
+    resume:          document.getElementById('opt-resume').checked,
+    auth_cookie:     document.getElementById('opt-auth-cookie').value.trim(),
+    auth_header:     document.getElementById('opt-auth-header').value.trim(),
+    proxy:           document.getElementById('opt-proxy').value.trim(),
+    scope_domains:   document.getElementById('opt-scope').value.trim()
+                       .split(',').map(s => s.trim()).filter(Boolean),
+  };
+
+  try {
+    const res = await fetch('/api/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Failed to start scan', 'error'); return; }
+
+    currentScanId     = data.scan_id;
+    currentScanDomain = data.domain;
+    activeScanIds     = data.scan_ids || [data.scan_id];
+
+    document.getElementById('topbar-domain').textContent = `// ${data.domain}`;
+    setScanBtnRunning(true);
+    setStatusPill('running', 'Scanning…');
+    clearTerminal();
+    resetStats();
+    resetPhases();
+    startElapsed();
+    allFindings = [];
+    updateFindingsTable();
+    updateChart({});
+    renderScanSelector();
+    startCollectedDataPolling();
+
+    openSSE(currentScanId);
+    startPolling(currentScanId);
+    startActiveScansPoll();
+    const msg = data.started > 1
+      ? `Started ${data.started} scans${data.queued ? ` (${data.queued} queued)` : ''}`
+      : `Scan started: ${data.domain}`;
+    toast(msg, 'success');
+  } catch(e) {
+    toast('Failed to connect to server', 'error');
+  }
+}
+
+async function stopScan() {
+  if (!currentScanId) return;
+  await fetch(`/api/scan/${currentScanId}/stop`, { method: 'POST' });
+  closeSSE();
+  setScanBtnRunning(false);
+  hidePauseBtn();
+  setStatusPill('error', 'Interrupted');
+  stopElapsed();
+  stopPolling();
+  stopCollectedDataPolling();
+  toast('Scan interrupted', 'info');
+}
+
+/* ─── Multi-scan selector ───────────────────── */
+async function renderScanSelector() {
+  const wrap = document.getElementById('scan-selector-wrap');
+  const sel  = document.getElementById('scan-selector');
+  if (!wrap || !sel) return;
+  try {
+    const r = await fetch('/api/scans');
+    const scans = await r.json();
+    const running = scans.filter(s => s.status === 'running');
+    if (running.length < 2) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = 'block';
+    sel.innerHTML = running.map(s => `<option value="${s.scan_id}" ${s.scan_id === currentScanId ? 'selected' : ''}>${escHtml(s.domain)}</option>`).join('');
+  } catch(_) { wrap.style.display = 'none'; }
+}
+
+function switchActiveScan(scanId) {
+  if (!scanId || scanId === currentScanId) return;
+  currentScanId = scanId;
+  fetch(`/api/scan/${scanId}`).then(r => r.json()).then(d => {
+    currentScanDomain = d.domain;
+    document.getElementById('topbar-domain').textContent = `// ${d.domain}`;
+    clearTerminal();
+    resetStats();
+    allFindings = [];
+    updatePhases(d.current_phase || 0);
+    updateStats(d.counts || {});
+    if (d.summary) updateChart(d.summary);
+    openSSE(scanId);
+    startPolling(scanId);
+    loadCollectedData();
+    if (['done','error','interrupted'].includes(d.status)) {
+      setScanBtnRunning(false);
+      stopPolling();
+      stopElapsed();
+      closeSSE();
+      stopCollectedDataPolling();
+    } else {
+      setScanBtnRunning(true);
+      setStatusPill('running', 'Scanning…');
+      elapsedStart = Date.now() - ((d.elapsed || 0) * 1000);
+      startElapsed();
+    }
+    toast(`Switched to ${d.domain}`, 'info');
+  });
+}
+
+/* ─── Active scans sidebar list ───────────────── */
+let activeScansPollTimer = null;
+
+async function pollActiveScans() {
+  try {
+    const r = await fetch('/api/scans');
+    const scans = await r.json();
+    const running = scans.filter(s => s.status === 'running');
+    const idle = document.getElementById('nav-idle');
+    const list = document.getElementById('nav-scan-list');
+    if (!idle || !list) return;
+    if (running.length === 0) {
+      list.style.display = 'none';
+      list.innerHTML = '';
+      idle.style.display = '';
+      stopActiveScansPoll();
+      return;
+    }
+    idle.style.display = 'none';
+    list.style.display = 'flex';
+    list.style.flexDirection = 'column';
+    list.style.gap = '6px';
+    list.innerHTML = running.map(s => {
+      const pct = (PHASE_CUMULATIVE[(s.current_phase || 1) - 1] || 0);
+      const phaseName = PHASE_NAMES[(s.current_phase || 1) - 1] || 'Running';
+      const m = Math.floor((s.elapsed || 0) / 60), sec = Math.floor((s.elapsed || 0) % 60);
+      const elapsed = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')} elapsed`;
+      const isCurrent = s.scan_id === currentScanId;
+      return `<div class="nav-scan-item" data-scan-id="${escAttr(s.scan_id)}" onclick="switchActiveScan('${escAttr(s.scan_id)}')"
+        style="padding:8px 12px;border-radius:8px;background:${isCurrent?'var(--bg3)':'var(--bg2)'};border:1px solid ${isCurrent?'var(--green)44':'var(--border)'};cursor:pointer;transition:all .15s">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <i class="fa-solid fa-circle-notch fa-spin" style="font-size:10px;color:var(--green)"></i>
+          <span style="font-size:12px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(s.domain)}">${escHtml(s.domain)}</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${pct}%</span>
+        </div>
+        <div style="width:100%;background:var(--bg3);border-radius:4px;height:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--green),var(--cyan));border-radius:4px;transition:width .3s"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:3px;font-family:'JetBrains Mono',monospace">${phaseName} · ${elapsed}</div>
+      </div>`;
+    }).join('');
+  } catch(_) {}
+}
+
+function startActiveScansPoll() {
+  stopActiveScansPoll();
+  pollActiveScans();
+  activeScansPollTimer = setInterval(pollActiveScans, 4000);
+}
+
+function stopActiveScansPoll() {
+  if (activeScansPollTimer) {
+    clearInterval(activeScansPollTimer);
+    activeScansPollTimer = null;
+  }
+}
+
+/* ─── Collected Data (real-time during scan) ─── */
+let collectedDataTimer = null;
+let collectedDataTab = 'subdomains';
+let collectedDataExpanded = false;
+
+function startCollectedDataPolling() {
+  const card = document.getElementById('collected-data-card');
+  if (card) card.style.display = 'block';
+  loadCollectedData();
+  if (collectedDataTimer) clearInterval(collectedDataTimer);
+  collectedDataTimer = setInterval(loadCollectedData, 15000);
+}
+
+function stopCollectedDataPolling() {
+  if (collectedDataTimer) { clearInterval(collectedDataTimer); collectedDataTimer = null; }
+}
+
+function toggleCollectedData() {
+  collectedDataExpanded = !collectedDataExpanded;
+  const body = document.getElementById('collected-data-body');
+  const arrow = document.getElementById('collected-data-arrow');
+  if (body) body.style.display = collectedDataExpanded ? 'block' : 'none';
+  if (arrow) arrow.textContent = collectedDataExpanded ? '▲' : '▼';
+  if (collectedDataExpanded) loadCollectedData();
+}
+
+function switchCollectedTab(tab, btn) {
+  collectedDataTab = tab;
+  const parent = document.getElementById('collected-data-body');
+  if (parent) parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadCollectedData();
+}
+
+async function loadCollectedData() {
+  if (!currentScanId) return;
+  const files = { subdomains: 'subdomains.txt', alive: 'alive_subdomains.txt', ports: 'open_ports.txt', urls: 'all_urls.txt' };
+  const f = files[collectedDataTab] || files.subdomains;
+  const el = document.getElementById('collected-data-content');
+  if (!el) return;
+  try {
+    const r = await fetch(`/api/scan/${currentScanId}/file/${f}`);
+    const d = await r.json();
+    const lines = d.lines || (Array.isArray(d.data) ? d.data.map(x => typeof x === 'string' ? x : JSON.stringify(x)) : []);
+    const count = d.count ?? lines.length;
+    if (lines.length === 0) {
+      el.innerHTML = `<div style="color:var(--text3);padding:20px;text-align:center">No data yet — will update as scan progresses</div>`;
+    } else {
+      el.innerHTML = lines.slice(0, 300).map(l => `<div style="word-break:break-all">${escHtml(String(l).slice(0, 200))}</div>`).join('') +
+        (count > 300 ? `<div style="color:var(--text3);margin-top:8px">… and ${count - 300} more</div>` : '');
+    }
+  } catch(_) {
+    el.innerHTML = `<div style="color:var(--text3);padding:20px;text-align:center">Unable to load</div>`;
+  }
+}
+
+async function togglePause() {
+  if (!currentScanId) return;
+  const btn  = document.getElementById('pause-btn');
+  const icon = document.getElementById('pause-btn-icon');
+  const text = document.getElementById('pause-btn-text');
+  const isPaused = btn.dataset.paused === 'true';
+  const endpoint = isPaused ? 'resume' : 'pause';
+  try {
+    const r = await fetch(`/api/scan/${currentScanId}/${endpoint}`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Failed', 'error'); return; }
+    if (d.status === 'paused') {
+      btn.dataset.paused = 'true';
+      icon.className = 'fa-solid fa-play';
+      text.textContent = 'Resume';
+      btn.style.borderColor = 'var(--orange)';
+      btn.style.color = 'var(--orange)';
+      setStatusPill('warn', 'Paused');
+      toast('Scan paused — will resume between phases', 'info');
+    } else {
+      btn.dataset.paused = 'false';
+      icon.className = 'fa-solid fa-pause';
+      text.textContent = 'Pause';
+      btn.style.borderColor = 'var(--yellow)';
+      btn.style.color = 'var(--yellow)';
+      setStatusPill('running', 'Scanning…');
+      toast('Scan resumed', 'success');
+    }
+  } catch(e) { toast('Failed to toggle pause', 'error'); }
+}
+
+function showPauseBtn() {
+  const btn = document.getElementById('pause-btn');
+  btn.style.display = 'flex';
+  btn.dataset.paused = 'false';
+}
+
+function hidePauseBtn() {
+  const btn = document.getElementById('pause-btn');
+  btn.style.display = 'none';
+  btn.dataset.paused = 'false';
+  document.getElementById('pause-btn-icon').className = 'fa-solid fa-pause';
+  document.getElementById('pause-btn-text').textContent = 'Pause';
+}
+
+/* ─── SSE with auto-reconnect ────────────────── */
+let _sseReconnectDelay = 1000;
+let _sseReconnectTimer = null;
+let _sseClosed = false;
+
+function openSSE(scanId) {
+  _sseClosed = false;
+  _sseReconnectDelay = 1000;
+  _connectSSE(scanId);
+}
+
+function _connectSSE(scanId) {
+  if (sseSource) { try { sseSource.close(); } catch(_){} }
+  sseSource = new EventSource(`/api/scan/${scanId}/stream`);
+
+  sseSource.onmessage = (e) => {
+    _sseReconnectDelay = 1000;  // reset on successful message
+    try {
+      const entry = JSON.parse(e.data);
+      if (entry.l === 'eof') { _sseClosed = true; sseSource.close(); return; }
+      appendLog(entry);
+    } catch(_) {}
+  };
+
+  sseSource.onerror = () => {
+    if (_sseClosed) return;
+    sseSource.close();
+    // Exponential backoff reconnect: 1s → 2s → 4s → 8s → max 16s
+    if (_sseReconnectTimer) clearTimeout(_sseReconnectTimer);
+    _sseReconnectTimer = setTimeout(() => {
+      if (!_sseClosed && currentScanId === scanId) {
+        _sseReconnectDelay = Math.min(_sseReconnectDelay * 2, 16000);
+        _connectSSE(scanId);
+      }
+    }, _sseReconnectDelay);
+  };
+}
+
+function closeSSE() {
+  _sseClosed = true;
+  if (_sseReconnectTimer) { clearTimeout(_sseReconnectTimer); _sseReconnectTimer = null; }
+  if (sseSource) { try { sseSource.close(); } catch(_){} sseSource = null; }
+}
+
+/* ─── Terminal ───────────────────────────────── */
+function appendLog(entry) {
+  const term = document.getElementById('terminal');
+  // Remove empty state
+  const empty = term.querySelector('.empty-state');
+  if (empty) term.innerHTML = '';
+
+  const line = document.createElement('div');
+  line.className = 'log-line';
+
+  const levelClass = ['info','warn','error','debug','phase','done'].includes(entry.l) ? entry.l : 'default';
+  line.innerHTML = `<span class="log-ts">[${entry.t || ''}]</span><span class="log-msg ${levelClass}">${escHtml(entry.m)}</span>`;
+  term.appendChild(line);
+  if (autoScroll) term.scrollTop = term.scrollHeight;
+}
+
+function clearTerminal() {
+  document.getElementById('terminal').innerHTML = '<div class="empty-state"><i class="fa-solid fa-terminal"></i><p>Terminal cleared</p></div>';
+}
+
+function scrollTerminalBottom() {
+  const term = document.getElementById('terminal');
+  term.scrollTop = term.scrollHeight;
+  autoScroll = true;
+}
+
+/* ─── Polling for status / counts ───────────────── */
+function startPolling(scanId) {
+  stopPolling();
+  pollTimer = setInterval(() => pollStatus(scanId), 3000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+let _pollErrors = 0;
+
+async function pollStatus(scanId) {
+  try {
+    const r  = await fetch(`/api/scan/${scanId}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d  = await r.json();
+    _pollErrors = 0;
+
+    updatePhases(d.current_phase);
+    updateStats(d.counts || {});
+    if (d.summary) updateChart(d.summary);
+    renderScanSelector();
+
+    // Update pause button state from server
+    if (d.paused) {
+      const pbtn = document.getElementById('pause-btn');
+      if (pbtn && pbtn.dataset.paused !== 'true') {
+        pbtn.dataset.paused = 'true';
+        document.getElementById('pause-btn-icon').className = 'fa-solid fa-play';
+        document.getElementById('pause-btn-text').textContent = 'Resume';
+        setStatusPill('warn', 'Paused');
+      }
+    }
+
+    if (['done','error','interrupted'].includes(d.status)) {
+      stopPolling();
+      stopElapsed();
+      closeSSE();
+      setScanBtnRunning(false);
+      hidePauseBtn();
+      stopCollectedDataPolling();
+      if (d.status === 'done') {
+        setStatusPill('done', 'Complete');
+        const totalVulns = Object.values(d.summary || {}).reduce((a,b)=>a+b,0);
+        toast(`Scan complete — ${totalVulns} finding${totalVulns!==1?'s':''} detected`, 'success');
+        loadResults(scanId);
+      } else if (d.status === 'error') {
+        setStatusPill('error', 'Error');
+        toast('Scan encountered an error. Check live output for details.', 'error');
+      } else if (d.status === 'interrupted') {
+        setStatusPill('error', 'Stopped');
+      }
+    }
+  } catch(e) {
+    _pollErrors++;
+    if (_pollErrors >= 4) {
+      // 4 consecutive failures = connection lost
+      stopPolling();
+      setStatusPill('error', 'Disconnected');
+      toast('Lost connection to server — please refresh', 'error');
+    }
+  }
+}
+
+async function loadResults(scanId) {
+  try {
+    const r = await fetch(`/api/scan/${scanId}/results`);
+    const d = await r.json();
+    // findings.json already contains all appended findings
+    const raw = d.findings || [];
+    // Normalize severity: custom findings use top-level "severity", engine findings use "info.severity"
+    allFindings = raw.map(f => {
+      if (!f.info) f.info = {};
+      if (!f.info.severity && f.severity) f.info.severity = f.severity;
+      if (!f.info.name && (f.description || f.type)) f.info.name = f.description || f.type || 'Finding';
+      if (!f['matched-at'] && f.url) f['matched-at'] = f.url;
+      return f;
+    });
+
+    updateFindingsTable();
+    const summary = d.scan?.summary || {};
+    updateChart(summary);
+    updateStats(d.counts || {});
+    updateSummaryStats(summary);
+    renderFileList(scanId);
+    showExportBtns(true);
+
+    // Warn if findings were truncated
+    const total = Object.values(summary).reduce((a,b)=>a+b,0);
+    if (total > allFindings.length && allFindings.length >= 1000) {
+      toast(`Showing ${allFindings.length} of ${total}+ findings — download CSV for full list`, 'warn');
+    }
+  } catch(e) {
+    toast('Failed to load scan results', 'error');
+  }
+}
+
+/* ─── File list (only show files with data) ─── */
+async function renderFileList(scanId) {
+  const FILES = [
+    { key: 'subdomains.txt',          label: 'Recon Results',         icon: 'fa-sitemap',             color: 'var(--green)' },
+    { key: 'alive_subdomains.txt',    label: 'Active Hosts',          icon: 'fa-server',              color: 'var(--cyan)' },
+    { key: 'open_ports.txt',          label: 'Open Ports',            icon: 'fa-network-wired',       color: '#a78bfa' },
+    { key: 'all_urls.txt',            label: 'Collected URLs',        icon: 'fa-link',                color: 'var(--yellow)' },
+    { key: 'js_files.txt',            label: 'JavaScript Files',      icon: 'fa-brands fa-js',        color: 'var(--yellow)' },
+    { key: 'filtered_urls.txt',       label: 'Filtered Endpoints',    icon: 'fa-filter',              color: 'var(--purple)' },
+    { key: 'params.txt',              label: 'Parameter Endpoints',   icon: 'fa-code',                color: 'var(--orange)' },
+    { key: 'alive_params.txt',        label: 'Verified Endpoints',    icon: 'fa-check-double',        color: 'var(--green)' },
+    { key: 'findings.json',           label: 'Vuln Engine Report',    icon: 'fa-shield-halved',       color: 'var(--red)' },
+    { key: 'cors_findings.json',      label: 'CORS Findings',         icon: 'fa-arrows-left-right',   color: '#06b6d4' },
+    { key: 'ssrf_findings.json',      label: 'SSRF Findings',         icon: 'fa-arrow-right-to-bracket', color: '#ff4444' },
+    { key: 'ssti_findings.json',      label: 'SSTI Findings',         icon: 'fa-code',                color: 'var(--purple)' },
+    { key: 'bypass_findings.json',    label: '403 Bypass',            icon: 'fa-lock-open',           color: 'var(--orange)' },
+    { key: 'takeover_findings.json',  label: 'Takeover Findings',     icon: 'fa-flag',                color: '#f43f5e' },
+    { key: 'graphql_findings.json',   label: 'GraphQL Findings',      icon: 'fa-diagram-project',     color: '#818cf8' },
+    { key: 'jwt_findings.json',       label: 'JWT Findings',          icon: 'fa-key',                 color: 'var(--orange)' },
+    { key: 'lfi_findings.json',       label: 'LFI / Path Traversal',  icon: 'fa-folder-open',         color: '#f43f5e' },
+    { key: 'xxe_findings.json',       label: 'XXE Findings',          icon: 'fa-code-branch',         color: '#dc2626' },
+    { key: 'race_findings.json',      label: 'Race Condition',        icon: 'fa-bolt',                color: 'var(--yellow)' },
+    { key: 'upload_findings.json',    label: 'File Upload Bypass',    icon: 'fa-upload',              color: '#f43f5e' },
+    { key: 'js_secrets.txt',          label: 'JS Secrets',            icon: 'fa-key',                 color: 'var(--red)' },
+    { key: 'xss_findings.json',       label: 'XSS Findings',          icon: 'fa-burst',               color: '#f97316' },
+    { key: 'sqli_findings.json',      label: 'SQL Injection',         icon: 'fa-database',            color: '#a855f7' },
+    { key: 'idor_findings.json',      label: 'IDOR Findings',         icon: 'fa-users',               color: '#60a5fa' },
+    { key: 'hostheader_findings.json',label: 'Host Header Injection', icon: 'fa-network-wired',       color: '#fbbf24' },
+    { key: 'redirect_findings.json',  label: 'Open Redirect',         icon: 'fa-arrow-turn-right',    color: '#fb923c' },
+  ];
+  const wrap = document.getElementById('file-list');
+  wrap.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;padding:14px">
+    <i class="fa-solid fa-spinner fa-spin" style="margin-right:6px"></i>Checking output files…</div>`;
+
+  // Probe all files in parallel, keep only non-empty
+  const checks = await Promise.all(FILES.map(async f => {
+    try {
+      const r = await fetch(`/api/scan/${scanId}/file/${f.key}`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      const cnt = d.count ?? (d.lines?.length) ?? (d.data?.length) ?? 0;
+      return cnt > 0 ? { ...f, count: cnt } : null;
+    } catch { return null; }
+  }));
+
+  const visible = checks.filter(Boolean);
+  wrap.innerHTML = '';
+
+  if (!visible.length) {
+    wrap.innerHTML = `<div style="color:var(--text3);font-size:11px;text-align:center;padding:22px">
+      <i class="fa-solid fa-inbox" style="font-size:24px;display:block;margin-bottom:8px;opacity:.35"></i>
+      No output files yet</div>`;
+    return;
+  }
+
+  visible.forEach(f => {
+    const el = document.createElement('div');
+    el.style.cssText = `display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s`;
+    el.innerHTML = `
+      <i class="fa-solid ${f.icon}" style="color:${f.color};width:14px;font-size:12px"></i>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);flex:1">${f.label}</span>
+      <span style="font-size:10px;font-weight:700;color:${f.color};font-family:'JetBrains Mono',monospace;min-width:28px;text-align:right">${f.count.toLocaleString()}</span>
+      <i class="fa-solid fa-arrow-up-right-from-square" style="color:var(--text3);font-size:9px"></i>`;
+    el.onmouseover = () => el.style.background = 'var(--bg4)';
+    el.onmouseleave = () => el.style.background = 'var(--bg3)';
+    el.onclick = () => viewFile(scanId, f.key);
+    wrap.appendChild(el);
+  });
+}
+
+async function viewFile(scanId, filename) {
+  try {
+    const r = await fetch(`/api/scan/${scanId}/file/${filename}`);
+    const d = await r.json();
+    if (d.data !== undefined) {
+      // JSON file → convert objects to readable strings
+      const lines = Array.isArray(d.data)
+        ? d.data.map(item => {
+            const sev  = (item.info?.severity || item.severity || '').toUpperCase();
+            const name = item.info?.name || item.description || item['template-id'] || item.type || '';
+            const url  = item['matched-at'] || item.url || '';
+            if (sev && name) return `[${sev}] ${name}${url ? ' — ' + url : ''}`;
+            return JSON.stringify(item);
+          })
+        : [JSON.stringify(d.data, null, 2)];
+      showFileModal(filename, lines, d.count || lines.length);
+    } else {
+      showFileModal(filename, d.lines || [], d.count || 0);
+    }
+  } catch(e) {
+    toast('Could not load file: ' + e.message, 'error');
+  }
+}
+
+function showFileModal(filename, lines, total) {
+  const existing = document.getElementById('file-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'file-modal';
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px`;
+  modal.onclick = (e) => { if(e.target===modal) modal.remove(); };
+
+  const content = document.createElement('div');
+  content.style.cssText = `background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:800px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden`;
+    const FILE_LABELS = {
+      'subdomains.txt': 'Recon Results', 'alive_subdomains.txt': 'Active Hosts',
+      'all_urls.txt': 'Collected URLs', 'filtered_urls.txt': 'Filtered Endpoints',
+      'params.txt': 'Parameter Endpoints', 'alive_params.txt': 'Verified Endpoints',
+      'findings.json': 'Vulnerability Report', 'findings.txt': 'Vulnerability Report',
+      'scan_report.json': 'Scan Summary',
+    };
+    const displayName = FILE_LABELS[filename] || 'Output Data';
+    content.innerHTML = `
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <i class="fa-solid fa-file-shield" style="color:var(--cyan)"></i>
+      <span style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(displayName)}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${total} entries${total > 500 ? ' (first 500 shown)' : ''}</span>
+      <button onclick="document.getElementById('file-modal').remove()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text3);padding:4px 10px;cursor:pointer;font-size:12px">✕ Close</button>
+    </div>
+    <div style="overflow-y:auto;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);line-height:1.8">
+      ${lines.map((l,i) => `<div><span style="color:var(--text3);margin-right:14px;user-select:none">${String(i+1).padStart(4,' ')}</span>${escHtml(l)}</div>`).join('')}
+    </div>`;
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+}
+
+/* ─── Phases ─────────────────────────────────── */
+const TOTAL_PHASES = 6;
+const PHASE_NAMES  = ['Initializing','Recon','Collection','Analysis','Vuln Scan','Report'];
+// Weighted progress: phases don't take equal time; recon+collection are slowest
+const PHASE_WEIGHTS = [2, 30, 20, 15, 28, 5];  // must sum to 100
+const PHASE_CUMULATIVE = (() => {
+  let s=0, r=[0];
+  PHASE_WEIGHTS.forEach(w => r.push(s+=w));
+  return r;
+})();
+
+function resetPhases() {
+  for (let i = 1; i <= TOTAL_PHASES; i++) {
+    const el = document.getElementById(`phase-${i}`);
+    if (el) el.className = 'phase-item';
+  }
+  document.getElementById('phase-badge').textContent = 'Phase 0 / 6';
+  const gp = document.getElementById('global-progress');
+  if (gp) gp.style.width = '0%';
+}
+
+function setNavIdle() {
+  const idle = document.getElementById('nav-idle');
+  const list = document.getElementById('nav-scan-list');
+  if (idle) idle.style.display = '';
+  if (list) { list.style.display = 'none'; list.innerHTML = ''; }
+}
+
+function updatePhases(currentPhase) {
+  if (!currentPhase || currentPhase < 1) return;
+  for (let i = 1; i <= TOTAL_PHASES; i++) {
+    const el = document.getElementById(`phase-${i}`);
+    if (!el) continue;
+    if (i < currentPhase)        el.className = 'phase-item done';
+    else if (i === currentPhase) el.className = 'phase-item active';
+    else                          el.className = 'phase-item';
+  }
+  document.getElementById('phase-badge').textContent = `Phase ${currentPhase} / ${TOTAL_PHASES}`;
+  const pct = PHASE_CUMULATIVE[currentPhase - 1];
+  const gp = document.getElementById('global-progress');
+  if (gp) gp.style.width = `${pct}%`;
+}
+
+/* ─── Stats ──────────────────────────────────── */
+function resetStats() {
+  ['stat-subdomains','stat-alive','stat-open-ports','stat-all-urls','stat-params','stat-alive-params','stat-js-files','stat-js-secrets'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+  ['stat-critical','stat-high','stat-medium'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '0';
+  });
+  showExportBtns(false);
+}
+
+function updateStats(counts) {
+  const MAP = {
+    subdomains:   'stat-subdomains',
+    alive_hosts:  'stat-alive',
+    open_ports:   'stat-open-ports',
+    all_urls:     'stat-all-urls',
+    params:       'stat-params',
+    alive_params: 'stat-alive-params',
+    js_files:     'stat-js-files',
+    js_secrets:   'stat-js-secrets',
+  };
+  for (const [k, id] of Object.entries(MAP)) {
+    if (counts[k] !== undefined) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = counts[k].toLocaleString();
+        if (k === 'js_secrets' && counts[k] > 0) {
+          el.style.color = 'var(--red)';
+          document.getElementById('secrets-badge').textContent = counts[k];
+        }
+      }
+    }
+  }
+}
+
+function updateSummaryStats(summary) {
+  const map = { critical:'stat-critical', high:'stat-high', medium:'stat-medium' };
+  for (const [k, id] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = (summary[k] || 0).toString();
+  }
+  // Also count from allFindings for real-time accuracy
+  const counts = { critical:0, high:0, medium:0 };
+  allFindings.forEach(f => {
+    const s = (f.info?.severity || f.severity || '').toLowerCase();
+    if (counts[s] !== undefined) counts[s]++;
+  });
+  for (const [k, id] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    const val = Math.max(summary[k] || 0, counts[k]);
+    if (el && val > 0) el.textContent = val.toString();
+  }
+}
+
+/* ─── Vulnerability Chart ───────────────────── */
+function updateChart(summary) {
+  // Count real severity from allFindings (includes all extra vuln types)
+  const counts = { critical:0, high:0, medium:0, low:0, info:0 };
+  allFindings.forEach(f => {
+    const s = (f.info?.severity || f.severity || 'info').toLowerCase();
+    if (counts[s] !== undefined) counts[s]++;
+  });
+  // Use max of summary vs actual count
+  const vals = [
+    Math.max(summary.critical || 0, counts.critical),
+    Math.max(summary.high     || 0, counts.high),
+    Math.max(summary.medium   || 0, counts.medium),
+    Math.max(summary.low      || 0, counts.low),
+    Math.max(summary.info     || 0, counts.info),
+  ];
+  const total = vals.reduce((a,b) => a+b, 0);
+
+  if (vulnChart) {
+    vulnChart.data.datasets[0].data = vals;
+    vulnChart.update();
+  }
+  document.getElementById('chart-total').textContent = total;
+  document.getElementById('vuln-total-badge').textContent = `${total} found`;
+  document.getElementById('sev-critical').textContent = vals[0];
+  document.getElementById('sev-high').textContent     = vals[1];
+  document.getElementById('sev-medium').textContent   = vals[2];
+  document.getElementById('sev-low').textContent      = vals[3];
+  // Update stat badges too
+  updateSummaryStats(summary);
+}
+
+/* ─── Section Switching ──────────────────────── */
+function switchSection(name, btn) {
+  ['vuln','secrets','attack-surface','extra-vulns'].forEach(s => {
+    const el = document.getElementById(`section-${s}`);
+    if (el) el.style.display = (s === name) ? '' : 'none';
+  });
+  document.querySelectorAll('#section-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'secrets')       loadJsSecrets();
+  if (name === 'attack-surface') loadAttackSurface();
+  if (name === 'extra-vulns')   loadExtraVulns();
+}
+
+/* ─── JS Secrets ─────────────────────────────── */
+async function loadJsSecrets() {
+  if (!currentScanId) return;
+  const r = await fetch(`/api/scan/${currentScanId}/file/js_secrets.json`);
+  const d = await r.json();
+  const list = document.getElementById('secrets-list');
+  const secrets = (d.data || []);
+  if (!secrets.length) {
+    list.innerHTML = `<div class="empty-state" style="padding:30px"><i class="fa-solid fa-key"></i><p>No secrets found — great!</p></div>`;
+    return;
+  }
+  const COLORS = {
+    'API Key':'#fbbf24','Secret Key':'#f97316','Password':'#ef4444',
+    'Access Token':'#a855f7','AWS Access Key ID':'#ff4444','JWT Token':'#ec4899',
+    'Database URL':'#06b6d4','GitHub Token':'#60a5fa','Google API Key':'#34d399',
+    'Bearer Token':'#a78bfa','default':'#94a3b8'
+  };
+  list.innerHTML = secrets.map(s => {
+    const col = COLORS[s.type] || COLORS.default;
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="background:rgba(239,68,68,0.1);color:${col};border:1px solid ${col}33;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700">${escHtml(s.type)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escHtml(s.url)}</span>
+        <span style="font-size:10px;color:var(--text3)">line ${s.line||'?'}</span>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--red);word-break:break-all;background:var(--bg2);padding:8px;border-radius:4px">${escHtml(s.value)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('secrets-badge').textContent = secrets.length;
+}
+
+/* ─── Extra Vulnerability Findings ──────────── */
+async function loadExtraVulns() {
+  if (!currentScanId) return;
+  const EXTRA_FILES = [
+    { key: 'cors_findings.json',        label: 'CORS Misconfiguration', color: '#06b6d4', icon: 'fa-arrows-left-right' },
+    { key: 'ssrf_findings.json',        label: 'SSRF',                  color: '#ff4444', icon: 'fa-arrow-right-to-bracket' },
+    { key: 'ssti_findings.json',        label: 'Template Injection',    color: '#a855f7', icon: 'fa-code' },
+    { key: 'bypass_findings.json',      label: 'Access Control Bypass', color: '#f97316', icon: 'fa-lock-open' },
+    { key: 'hostheader_findings.json',  label: 'Host Header Injection', color: '#fbbf24', icon: 'fa-server' },
+    { key: 'redirect_findings.json',    label: 'Open Redirect',         color: '#34d399', icon: 'fa-arrow-turn-right' },
+    { key: 'takeover_findings.json',    label: 'Subdomain Takeover',    color: '#f43f5e', icon: 'fa-flag' },
+    { key: 'graphql_findings.json',     label: 'GraphQL Exposure',      color: '#818cf8', icon: 'fa-diagram-project' },
+    { key: 'jwt_findings.json',         label: 'JWT Vulnerability',     color: '#fb923c', icon: 'fa-key' },
+    { key: 'lfi_findings.json',         label: 'Local File Inclusion',  color: '#dc2626', icon: 'fa-folder-open' },
+    { key: 'xxe_findings.json',         label: 'XML Injection (XXE)',   color: '#ef4444', icon: 'fa-code-branch' },
+    { key: 'race_findings.json',        label: 'Race Condition',        color: '#eab308', icon: 'fa-bolt' },
+    { key: 'upload_findings.json',      label: 'File Upload Bypass',    color: '#f43f5e', icon: 'fa-upload' },
+    { key: 'idor_findings.json',        label: 'IDOR',                  color: '#60a5fa', icon: 'fa-users' },
+    { key: 'xss_findings.json',         label: 'Cross-Site Scripting',  color: '#f97316', icon: 'fa-burst' },
+    { key: 'sqli_findings.json',        label: 'SQL Injection',         color: '#a855f7', icon: 'fa-database' },
+  ];
+
+  const results = await Promise.all(EXTRA_FILES.map(async ef => {
+    try {
+      const r = await fetch(`/api/scan/${currentScanId}/file/${ef.key}`);
+      const d = await r.json();
+      return { ...ef, findings: d.data || [] };
+    } catch { return { ...ef, findings: [] }; }
+  }));
+
+  const allExtra = results.filter(r => r.findings.length > 0);
+  const list = document.getElementById('extra-vulns-list');
+
+  if (!allExtra.length) {
+    list.innerHTML = `<div class="empty-state" style="padding:30px"><i class="fa-solid fa-fire"></i><p>No additional findings yet</p></div>`;
+    return;
+  }
+
+  const totalExtra = allExtra.reduce((a,r) => a + r.findings.length, 0);
+  document.getElementById('extra-badge').textContent = totalExtra;
+
+  const SEV_COL = { critical:'#ff2222', high:'#f87171', medium:'#fbbf24', low:'#60a5fa', info:'#94a3b8' };
+
+  list.innerHTML = allExtra.map(ef => `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid ${ef.color}">
+        <i class="fa-solid ${ef.icon}" style="color:${ef.color}"></i>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">${ef.label}</span>
+        <span style="background:${ef.color}22;color:${ef.color};border-radius:9999px;padding:1px 8px;font-size:11px">${ef.findings.length}</span>
+      </div>
+      ${ef.findings.slice(0,10).map(f => {
+        const sev = (f.severity || 'info').toLowerCase();
+        const col = SEV_COL[sev] || '#94a3b8';
+        const url = f.url || '—';
+        const desc = f.description || f.url || '—';
+        const detail = f.payload ? `<br><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#94a3b8">Payload: ${escHtml(f.payload)}</span>` : '';
+        return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:6px">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <span style="background:${col}22;color:${col};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${sev.toUpperCase()}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;color:var(--text);margin-bottom:4px">${escHtml(desc)}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(url)}</div>
+              ${detail}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+      ${ef.findings.length > 10 ? `<div style="font-size:11px;color:var(--text3);text-align:center;padding:6px">... and ${ef.findings.length - 10} more</div>` : ''}
+    </div>`).join('');
+}
+
+/* ─── Attack Surface (GF Patterns) ──────────── */
+async function loadAttackSurface() {
+  if (!currentScanId) return;
+  const GF_FILES = [
+    { key: 'gf_xss.txt',      label: 'XSS Candidates',       icon: 'fa-code',          color: '#f97316' },
+    { key: 'gf_sqli.txt',     label: 'Injection Candidates',  icon: 'fa-database',      color: '#a855f7' },
+    { key: 'gf_ssrf.txt',     label: 'SSRF Candidates',       icon: 'fa-arrow-right-arrow-left', color: '#06b6d4' },
+    { key: 'gf_redirect.txt', label: 'Open Redirect',         icon: 'fa-arrow-turn-right', color: '#fbbf24' },
+    { key: 'gf_lfi.txt',      label: 'File Inclusion',        icon: 'fa-file-circle-exclamation', color: '#ef4444' },
+    { key: 'gf_rce.txt',      label: 'RCE Candidates',        icon: 'fa-terminal',      color: '#ff2222' },
+    { key: 'gf_idor.txt',     label: 'IDOR Candidates',       icon: 'fa-users',         color: '#60a5fa' },
+  ];
+  const grid = document.getElementById('gf-grid');
+  const results = await Promise.all(GF_FILES.map(async f => {
+    try {
+      const r = await fetch(`/api/scan/${currentScanId}/file/${f.key}`);
+      const d = await r.json();
+      return { ...f, count: d.count || 0, lines: d.lines || [] };
+    } catch { return { ...f, count: 0, lines: [] }; }
+  }));
+  const nonEmpty = results.filter(r => r.count > 0);
+  if (!nonEmpty.length) {
+    grid.innerHTML = `<div class="empty-state" style="padding:30px"><i class="fa-solid fa-crosshairs"></i><p>No attack surface classified yet</p></div>`;
+    return;
+  }
+  grid.innerHTML = nonEmpty.map(r => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-left:3px solid ${r.color};border-radius:8px;padding:14px;cursor:pointer"
+      onclick="viewFile('${currentScanId}','${r.key}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <i class="fa-solid ${r.icon}" style="color:${r.color};font-size:14px"></i>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">${r.label}</span>
+      </div>
+      <div style="font-size:28px;font-weight:700;color:${r.color};font-family:'JetBrains Mono',monospace">${r.count}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">endpoints identified</div>
+    </div>`).join('');
+}
+
+/* ─── Findings Table ─────────────────────────── */
+function filterFindings(sev, btn) {
+  currentFilter = sev;
+  document.querySelectorAll('#findings-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateFindingsTable();
+}
+
+function updateFindingsTable() {
+  const tbody = document.getElementById('findings-tbody');
+  const badge = document.getElementById('findings-count-badge');
+
+  let filtered = allFindings;
+  if (currentFilter !== 'all') {
+    filtered = allFindings.filter(f =>
+      (f.info?.severity || f.severity || 'info').toLowerCase() === currentFilter
+    );
+  }
+
+  badge.textContent = `${filtered.length} results`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="padding:30px"><i class="fa-solid fa-bug"></i><p>${allFindings.length ? 'No findings for this filter' : 'No findings yet'}</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.slice(0, 500).map(f => {
+    const sev  = (f.info?.severity || f.severity || 'info').toLowerCase();
+    const name = f.info?.name || f.description || f['template-id'] || '—';
+    const at   = f['matched-at'] || f.url || '—';
+    const type = f.type || f.info?.classification?.['cve-id']?.[0] || '—';
+    const tid  = f['template-id'] || f.type || '—';
+    return `<tr>
+      <td><span class="sev-tag sev-${sev}">${sev}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">${escHtml(tid)}</td>
+      <td style="color:var(--text)">${escHtml(name)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(at)}">${escHtml(at)}</td>
+      <td style="color:var(--text3)">${escHtml(type)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── History ─────────────────────────────────── */
+let historyItems   = [];
+let histSelectMode = false;
+let histSelected   = new Set();
+
+async function loadHistory() {
+  try {
+    const r = await fetch('/api/history');
+    historyItems = await r.json();
+    renderHistoryGrid();
+  } catch(e) {}
+}
+
+function renderHistoryGrid() {
+  const grid = document.getElementById('history-grid');
+  if (!historyItems.length) {
+    grid.innerHTML = '<div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i><p>No scan history</p></div>';
+    return;
+  }
+  grid.innerHTML = historyItems.map((item, idx) => {
+    const counts  = item.counts || {};
+    const summary = item.vulnerability_summary || {};
+    const total   = Object.values(summary).reduce((a,b)=>a+b,0);
+    const date    = item.scan_date ? new Date(item.scan_date).toLocaleString() : '—';
+    const dur     = item.duration_seconds || 0;
+    const owner   = escHtml(item.owner || '');
+    const folder  = escHtml(item.folder || item.domain || '');
+    const isSelected = histSelected.has(`${owner}/${folder}`);
+    const vulnBadge  = total ? `<span class="history-stat" style="color:var(--red);border-color:rgba(239,68,68,0.3)">${total} vulns</span>` : '';
+    const severityBadge = summary.critical ? `<span class="history-stat" style="color:#ff4444;border-color:rgba(255,68,68,0.4)">C:${summary.critical}</span>` : '';
+    const highBadge = summary.high ? `<span class="history-stat" style="color:#f87171;border-color:rgba(248,113,113,0.3)">H:${summary.high}</span>` : '';
+    return `<div class="history-card${histSelectMode ? ' selectable' : ''}${isSelected ? ' selected' : ''}"
+               onclick="histCardClick(event, '${owner}', '${folder}', '${escHtml(item.domain || folder)}')"
+               data-owner="${owner}" data-folder="${folder}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <h3 style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.domain || folder)}</h3>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          ${histSelectMode
+            ? `<span class="hist-check${isSelected ? ' checked' : ''}" style="width:18px;height:18px;border:2px solid var(--border2);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;${isSelected ? 'background:var(--cyan);border-color:var(--cyan)' : ''}">
+                ${isSelected ? '<i class="fa-solid fa-check" style="font-size:10px;color:#000"></i>' : ''}
+               </span>`
+            : `<button onclick="event.stopPropagation();quickDeleteScan('${owner}','${folder}')"
+                 style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;color:#f87171;padding:2px 6px;cursor:pointer;font-size:10px;line-height:1" title="Delete">
+                 <i class="fa-solid fa-trash"></i>
+               </button>
+               <button onclick="event.stopPropagation();viewHistoryScan('${owner}','${folder}')"
+                 style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:5px;color:var(--cyan);padding:2px 6px;cursor:pointer;font-size:10px;line-height:1" title="View Results">
+                 <i class="fa-solid fa-eye"></i>
+               </button>`
+          }
+        </div>
+      </div>
+      <div class="history-meta">${date} · ${Math.floor(dur/60)}m ${Math.round(dur%60)}s${item.owner ? ' · ' + escHtml(item.owner) : ''}</div>
+      <div class="history-stats">
+        ${counts.subdomains  ? `<span class="history-stat">${counts.subdomains} subs</span>` : ''}
+        ${counts.alive_hosts ? `<span class="history-stat">${counts.alive_hosts} alive</span>` : ''}
+        ${counts.params      ? `<span class="history-stat">${counts.params} params</span>` : ''}
+        ${severityBadge}${highBadge}${vulnBadge}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function histCardClick(event, owner, folder, domain) {
+  if (histSelectMode) {
+    const key = `${owner}/${folder}`;
+    if (histSelected.has(key)) histSelected.delete(key);
+    else histSelected.add(key);
+    const countEl = document.getElementById('hist-select-count');
+    countEl.textContent = `${histSelected.size} selected`;
+    document.getElementById('hist-delete-btn').style.display = histSelected.size ? '' : 'none';
+    renderHistoryGrid();
+  } else {
+    viewHistoryScan(owner, folder);
+  }
+}
+
+function toggleHistorySelectMode() {
+  histSelectMode = !histSelectMode;
+  histSelected.clear();
+  const btn = document.getElementById('hist-select-btn');
+  const countEl = document.getElementById('hist-select-count');
+  const delBtn  = document.getElementById('hist-delete-btn');
+  if (histSelectMode) {
+    btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+    btn.style.borderColor = 'rgba(239,68,68,0.4)';
+    btn.style.color = '#f87171';
+    countEl.style.display = '';
+    countEl.textContent = '0 selected';
+  } else {
+    btn.innerHTML = '<i class="fa-solid fa-check-square"></i> Select';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    countEl.style.display = 'none';
+    delBtn.style.display = 'none';
+  }
+  renderHistoryGrid();
+}
+
+async function quickDeleteScan(owner, folder) {
+  if (!confirm(`Delete scan for "${folder}"? This cannot be undone.`)) return;
+  try {
+    const r = await fetch(`/api/history/${encodeURIComponent(owner)}/${encodeURIComponent(folder)}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (r.ok) { toast('Scan deleted', 'success'); await loadHistory(); }
+    else toast(d.error || 'Delete failed', 'error');
+  } catch(e) { toast('Delete failed', 'error'); }
+}
+
+async function deleteSelectedScans() {
+  if (!histSelected.size) return;
+  if (!confirm(`Delete ${histSelected.size} scan(s)? This cannot be undone.`)) return;
+  let ok = 0, fail = 0;
+  for (const key of histSelected) {
+    const [owner, folder] = key.split('/');
+    try {
+      const r = await fetch(`/api/history/${encodeURIComponent(owner)}/${encodeURIComponent(folder)}`, { method: 'DELETE' });
+      if (r.ok) ok++; else fail++;
+    } catch(e) { fail++; }
+  }
+  if (ok) toast(`${ok} scan(s) deleted`, 'success');
+  if (fail) toast(`${fail} scan(s) failed to delete`, 'error');
+  histSelected.clear();
+  histSelectMode = false;
+  document.getElementById('hist-select-btn').innerHTML = '<i class="fa-solid fa-check-square"></i> Select';
+  document.getElementById('hist-select-btn').style.borderColor = '';
+  document.getElementById('hist-select-btn').style.color = '';
+  document.getElementById('hist-select-count').style.display = 'none';
+  document.getElementById('hist-delete-btn').style.display = 'none';
+  await loadHistory();
+}
+
+async function viewHistoryScan(owner, folder) {
+  try {
+    toast('Loading scan results…', 'info');
+    const r = await fetch(`/api/history/${encodeURIComponent(owner)}/${encodeURIComponent(folder)}/load`);
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Failed to load scan', 'error'); return; }
+    const scanId = d.scan_id;
+    currentScanId     = scanId;
+    currentScanDomain = d.domain;
+    switchPage('dashboard');
+    document.getElementById('topbar-domain').textContent = `// ${d.domain}`;
+    document.getElementById('domain-input').value = d.domain;
+    setStatusPill('done', 'History');
+    setScanBtnRunning(false);
+    clearTerminal();
+    resetStats();
+    allFindings = [];
+    await loadResults(scanId);
+    renderFileList(scanId);
+    toast(`Showing results for: ${d.domain}`, 'success');
+  } catch(e) { toast('Failed to load scan results', 'error'); }
+}
+
+/* ─── UI Helpers ─────────────────────────────── */
+function setScanBtnRunning(running) {
+  const btn  = document.getElementById('scan-btn');
+  const icon = document.getElementById('scan-btn-icon');
+  const text = document.getElementById('scan-btn-text');
+  if (running) {
+    btn.classList.add('running');
+    icon.className = 'fa-solid fa-stop';
+    text.textContent = 'Stop Scan';
+    showPauseBtn();
+  } else {
+    btn.classList.remove('running');
+    icon.className = 'fa-solid fa-play';
+    text.textContent = 'Launch Scan';
+    hidePauseBtn();
+  }
+}
+
+function setStatusPill(type, label) {
+  const pill = document.getElementById('scan-status-pill');
+  const text = document.getElementById('scan-status-text');
+  pill.className = `status-pill ${type}`;
+  text.textContent = label;
+}
+
+async function saveTelegram() {
+  const token  = document.getElementById('tg-token').value.trim();
+  const chatId = document.getElementById('tg-chatid').value.trim();
+  const status = document.getElementById('tg-status');
+  if (!token || !chatId) { toast('Bot Token and Chat ID are required', 'error'); return; }
+  status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying with Telegram…';
+  try {
+    const r = await fetch('/api/telegram', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ bot_token: token, chat_id: chatId, enabled: true })
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      status.innerHTML = `<span style="color:var(--red)"><i class="fa-solid fa-circle-xmark"></i> ${escHtml(d.error || 'Error')}</span>`;
+      return;
+    }
+    status.innerHTML = `<span style="color:#34d399"><i class="fa-solid fa-check-circle"></i> ${escHtml(d.message)}</span>`;
+    document.getElementById('tg-test-btn').style.display = 'inline-flex';
+    toast('Telegram notifications enabled', 'success');
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)"><i class="fa-solid fa-circle-xmark"></i> Network error</span>`;
+  }
+}
+
+async function testTelegram() {
+  const status = document.getElementById('tg-status');
+  status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending test message…';
+  try {
+    const r = await fetch('/api/telegram/test', { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) {
+      status.innerHTML = `<span style="color:var(--red)"><i class="fa-solid fa-circle-xmark"></i> ${escHtml(d.error)}</span>`;
+      return;
+    }
+    status.innerHTML = `<span style="color:#34d399"><i class="fa-solid fa-check-circle"></i> Test message sent successfully.</span>`;
+    toast('Test notification sent', 'success');
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)"><i class="fa-solid fa-circle-xmark"></i> Network error</span>`;
+  }
+}
+
+async function loadTelegramConfig() {
+  try {
+    const r = await fetch('/api/telegram');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.bot_token) document.getElementById('tg-token').placeholder = d.bot_token;
+    if (d.chat_id)   document.getElementById('tg-chatid').value = d.chat_id;
+    if (d.enabled) {
+      document.getElementById('tg-test-btn').style.display = 'inline-flex';
+      document.getElementById('tg-status').innerHTML = '<span style="color:#34d399"><i class="fa-solid fa-check-circle"></i> Notifications active.</span>';
+    }
+  } catch(_) {}
+}
+
+/* ─── Toast ──────────────────────────────────── */
+function toast(msg, type='info') {
+  const icons = { success:'fa-check-circle', error:'fa-circle-xmark', info:'fa-circle-info' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="fa-solid ${icons[type]||icons.info}"></i><span>${escHtml(msg)}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='all 0.3s'; setTimeout(()=>el.remove(),300); }, 3500);
+}
+
+/* ─── Escape HTML ───────────────────────────── */
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ─── Change Password ────────────────────────── */
+function showChangePassword() {
+  const m = document.getElementById('pwd-modal');
+  m.style.display = 'flex';
+  document.getElementById('pwd-old').value = '';
+  document.getElementById('pwd-new').value = '';
+  document.getElementById('pwd-old').focus();
+}
+async function submitChangePassword() {
+  const oldP = document.getElementById('pwd-old').value;
+  const newP = document.getElementById('pwd-new').value;
+  if (!oldP || !newP) { toast('Fill both fields', 'error'); return; }
+  if (newP.length < 6) { toast('New password must be 6+ chars', 'error'); return; }
+  try {
+    const r = await fetch('/api/me/password', {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({old_password: oldP, new_password: newP})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      toast('Password changed successfully', 'success');
+      document.getElementById('pwd-modal').style.display = 'none';
+    } else {
+      toast(d.error || 'Failed', 'error');
+    }
+  } catch(e) { toast('Request failed', 'error'); }
+}
+
+/* ─── Init ───────────────────────────────────── */
+/* ─── Theme Toggle ───────────────────────────── */
+function toggleTheme() {
+  const body = document.documentElement;
+  const isLight = body.getAttribute('data-theme') === 'light';
+  const newTheme = isLight ? 'dark' : 'light';
+  body.setAttribute('data-theme', newTheme);
+  localStorage.setItem('scanner-theme', newTheme);
+  const icon  = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (newTheme === 'light') {
+    icon.className = 'fa-solid fa-sun';
+    label.textContent = 'Light';
+  } else {
+    icon.className = 'fa-solid fa-moon';
+    label.textContent = 'Dark';
+  }
+  // Re-render chart with new colors
+  if (vulnChart) { vulnChart.destroy(); vulnChart = null; initChart(); }
+}
+
+function applyStoredTheme() {
+  const stored = localStorage.getItem('scanner-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', stored);
+  const icon  = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (stored === 'light') {
+    icon.className = 'fa-solid fa-sun';
+    label.textContent = 'Light';
+  }
+}
+
+/* ─── Export report ─────────────────────────── */
+function exportReport(fmt) {
+  if (!currentScanId) { toast('No scan selected', 'error'); return; }
+  const btn = document.getElementById(`export-${fmt}-btn`);
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating…`;
+  btn.disabled = true;
+
+  const a = document.createElement('a');
+  a.href     = `/api/scan/${currentScanId}/export/${fmt}`;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 2000);
+}
+
+function showExportBtns(show) {
+  const htmlBtn = document.getElementById('export-html-btn');
+  const csvBtn  = document.getElementById('export-csv-btn');
+  if (htmlBtn) htmlBtn.style.display = show ? 'inline-flex' : 'none';
+  if (csvBtn)  csvBtn.style.display  = show ? 'inline-flex' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyStoredTheme();
+  initChart();
+  loadTools();
+});
+</script>
+
+</body>
+</html>
