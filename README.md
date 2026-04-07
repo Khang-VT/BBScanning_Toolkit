@@ -67,7 +67,7 @@ bash start.sh
 <img width="1920" height="821" alt="image" src="https://github.com/user-attachments/assets/781485e3-0acf-48d9-b190-70cc235c2d89" />
 
 
-> **🔒 Security Notes:**
+> **Security Notes:**
 > - For safety, the Web UI listens locally on `127.0.0.1` by default. To expose it over the network/internet (e.g. on a VPS), run `HOST=0.0.0.0 bash start.sh`.
 > - On the very first run, the system will **auto-generate a secure random password** for the `admin` account and print it to your terminal exactly once.
 
@@ -77,7 +77,7 @@ python3 app.py
 ```
 > Open your browser and navigate to: `http://127.0.0.1:5000`
 
-### 💻 Using the CLI
+### Using the CLI
 
 **Basic Syntax:**
 ```bash
